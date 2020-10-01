@@ -87,7 +87,10 @@ int main(int argc, char const *argv[])
 		exit(1);
 	}
     // buf[numbytes] = '\0';
-	printf("listener: packet contains \"%s\"\n", buf);
+	// printf("listener: packet contains \"%s\"\n", buf);
+    // ?????????????????????????????????????????? why str cmp doesn't work? 
+    // strcmp(buf, "ftp") won't work
+    
     if((strncmp(buf, "ftp",3)==0)){
         if ((numbytes = sendto(sockfd, "yes", strlen("yes"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
             perror("deliver: sendto");
