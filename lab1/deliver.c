@@ -1,5 +1,8 @@
 /*
+** modified from http://beej.us/guide/bgnet/examples/listener.c
 ** talker.c -- a datagram "client" demo
+other resources: https://www.geeksforgeeks.org/udp-server-client-implementation-c/
+IP: 128.100.13.153
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,44 +14,82 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#define SERVERPORT "4950" // the port users will be connecting to
-int main(int argc, char *argv[])
-{
-int sockfd;
-struct addrinfo hints, *servinfo, *p;
-int rv;
-int numbytes;
-if (argc != 3) {
-fprintf(stderr,"usage: talker hostname message\n");
-exit(1);
-}
-memset(&hints, 0, sizeof hints);
-hints.ai_family = AF_UNSPEC;
-hints.ai_socktype = SOCK_DGRAM;
-if ((rv = getaddrinfo(argv[1], SERVERPORT, &hints, &servinfo)) != 0) {
-fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-return 1;
-}
-// loop through all the results and make a socket
-for(p = servinfo; p != NULL; p = p->ai_next) {
-if ((sockfd = socket(p->ai_family, p->ai_socktype,
-p->ai_protocol)) == -1) {
-perror("talker: socket");
-continue;
-}
-break;
-}
-if (p == NULL) {
-fprintf(stderr, "talker: failed to create socket\n");
-return 2;
-}
-if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
-p->ai_addr, p->ai_addrlen)) == -1) {
-perror("talker: sendto");
-exit(1);
-}
-freeaddrinfo(servinfo);
-printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
-close(sockfd);
-return 0;
+#include<unistd.h>
+
+#define MAX 100
+// #define SERVERPORT "4950" // the port users will be connecting to
+int main(int argc, char *argv[]){
+    int sockfd;
+    struct addrinfo hints, *servinfo, *p;
+    int rv;
+    int numbytes;
+    if (argc != 3) {
+        fprintf(stderr,"Error: please input <server address> <server port number>\n");
+        exit(1);
+    }
+
+
+    // Sets the first num bytes of the block of memory pointed by ptr to the specified value (interpreted as an unsigned char).
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; // ip4 or 6
+    hints.ai_socktype = SOCK_DGRAM; // type
+    // int getaddrinfo(const char *node, // e.g. "www.example.com" or IP
+    // const char *service, // e.g. "http" or port number
+    // const struct addrinfo *hints, // carries addr information
+    // struct addrinfo **res);
+    if ((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+    }
+    
+    // loop through all the results and make a socket
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+        // try to make a socket on the first sucessful one
+        // return file descriptor #
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            perror("deliver: socket");
+            continue;
+        }
+        break;
+    }
+    if (p == NULL) {
+        fprintf(stderr, "talker: failed to create socket\n");
+        return 2;
+    }
+
+    // start type in ftp command
+    char command[MAX]; 
+    fgets(command, MAX, stdin); 
+    // split
+    char *token = strtok(command, " "); 
+    if(strcmp(token, "ftp")!=0){
+        printf("please enter: ftp <file name>");
+    }
+    token = strtok(NULL, " ");
+    if(token==NULL){ // end of string
+        printf("not enough argument");
+        exit(1);
+    }
+    char filename[MAX];
+    strcpy(filename, token);
+    printf("looking for file:%s", filename);
+    // ????????????????????????????????????????????? the following doesn't work:
+    // if(access(filename, F_OK) == -1){
+    //     printf("no such file in the directory");
+    //     exit(1);
+    // }
+
+
+    //send "ftp" to server
+    if ((numbytes = sendto(sockfd, "ftp", strlen("ftp"), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+        perror("deliver: sendto");
+        exit(1);
+    }
+    // receive from server...
+
+    freeaddrinfo(servinfo);
+    // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
+    close(sockfd);
+    printf("a file transfer can start");
+    return 0;
 }

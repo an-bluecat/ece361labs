@@ -13,7 +13,7 @@ all: $(TARGET)
 server: server.c
 	$(CC) server.c $(CFLAGS) -o server 
 deliver: deliver.c
-	$(CC) server.c $(CFLAGS) -o deliver
+	$(CC) deliver.c $(CFLAGS) -o deliver
 
 clean:
 	$(RM) $(TARGET)
