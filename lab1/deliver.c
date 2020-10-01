@@ -16,7 +16,7 @@ IP: 128.100.13.153
 #include <netdb.h>
 #include<unistd.h>
 
-#define MAX 100
+#define MAXBUFLEN 100
 // #define SERVERPORT "4950" // the port users will be connecting to
 int main(int argc, char *argv[]){
     int sockfd;
@@ -58,8 +58,8 @@ int main(int argc, char *argv[]){
     }
 
     // start type in ftp command
-    char command[MAX]; 
-    fgets(command, MAX, stdin); 
+    char command[MAXBUFLEN]; 
+    fgets(command, MAXBUFLEN, stdin); 
     // split
     char *token = strtok(command, " "); 
     if(strcmp(token, "ftp")!=0){
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
         printf("not enough argument");
         exit(1);
     }
-    char filename[MAX];
+    char filename[MAXBUFLEN];
     strcpy(filename, token);
     printf("looking for file:%s", filename);
     // ????????????????????????????????????????????? the following doesn't work:
@@ -86,10 +86,24 @@ int main(int argc, char *argv[]){
         exit(1);
     }
     // receive from server...
-
+    char buf[MAXBUFLEN];
+    socklen_t addr_len=sizeof(p->ai_addr);
+    if (
+        (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
+        ) {
+		perror("recvfrom");
+		exit(1);
+	}
+    printf("listener: packet contains \"%s\"\n", buf);
+    if(strcmp(buf, "yes")==0){
+        printf("a file transfer can start");
+    }else{
+        printf("Error: didn't receive yes from server");
+        exit(1);
+    }
     freeaddrinfo(servinfo);
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);
-    printf("a file transfer can start");
+    
     return 0;
 }

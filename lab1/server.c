@@ -42,7 +42,7 @@ int main(int argc, char const *argv[])
 	struct sockaddr_storage their_addr;
 	char buf[MAXBUFLEN];
 	socklen_t addr_len;
-	char s[INET6_ADDRSTRLEN];
+	// char s[INET6_ADDRSTRLEN];
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
@@ -78,22 +78,38 @@ int main(int argc, char const *argv[])
 
 	freeaddrinfo(servinfo);
 
-	printf("listener: waiting to recvfrom...\n");
-
+    // receive "ftp" from deliver.c
+	printf("server: waiting to recvfrom...\n");
 	addr_len = sizeof their_addr;
 	if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
 		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
 		perror("recvfrom");
 		exit(1);
 	}
-
-	printf("listener: got packet from %s\n",
-		inet_ntop(their_addr.ss_family,
-			get_in_addr((struct sockaddr *)&their_addr),
-			s, sizeof s));
-	printf("listener: packet is %d bytes long\n", numbytes);
-	buf[numbytes] = '\0';
+    // buf[numbytes] = '\0';
 	printf("listener: packet contains \"%s\"\n", buf);
+    if((strncmp(buf, "ftp",3)==0)){
+        if ((numbytes = sendto(sockfd, "yes", strlen("yes"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+            perror("deliver: sendto");
+            exit(1);
+        }else{
+            printf("sent yes\n");
+        }
+    }else{
+        if ((numbytes = sendto(sockfd, "no", strlen("no"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+            perror("deliver: sendto");
+            exit(1);
+        }else{
+            printf("sent no\n");
+        }
+    }
+	// printf("listener: got packet from %s\n",
+	// 	inet_ntop(their_addr.ss_family,
+	// 		get_in_addr((struct sockaddr *)&their_addr),
+	// 		s, sizeof s));
+	// printf("listener: packet is %d bytes long\n", numbytes);
+	// buf[numbytes] = '\0';
+	// printf("listener: packet contains \"%s\"\n", buf);
 
 	close(sockfd);
 
