@@ -72,13 +72,22 @@ int main(int argc, char *argv[]){
     }
     char filename[MAXBUFLEN];
     strcpy(filename, token);
-    printf("looking for file:%s", filename);
-    // ????????????????????????????????????????????? the following doesn't work:
-    // if(access(filename, F_OK) == -1){
-    //     printf("no such file in the directory");
-    //     exit(1);
-    // }
+    printf("looking for file: %s", filename);
 
+    // trim filename
+    char *tmp = filename;
+    int len = strlen(tmp);
+
+    while(isspace(tmp[len-1])) tmp[--len] = 0;
+    while(*tmp && isspace(* tmp)) ++tmp, --len;
+
+    memmove(filename, tmp, len+1);
+
+    // ????????????????????????????????????????????? the following doesn't work:
+    if(access(filename, F_OK) == -1){
+        printf("no such file in the directory");
+        exit(1);
+    }
 
     //send "ftp" to server
     if ((numbytes = sendto(sockfd, "ftp", strlen("ftp"), 0, p->ai_addr, p->ai_addrlen)) == -1) {
