@@ -13,9 +13,10 @@ listener.c -- a datagram sockets "server" demo
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <time.h>
 
 // #define MYPORT "4950"
-#define MAXBUFLEN 100
+#define MAXBUFLEN 65535
 
 // get sockaddr, IPv4 or IPv6:
 // void *get_in_addr(struct sockaddr *sa)
@@ -81,15 +82,15 @@ int main(int argc, char const *argv[])
     // receive "ftp" from deliver.c
 	printf("server: waiting to recvfrom...\n");
 	addr_len = sizeof their_addr;
-	if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
+	if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN , 0,
 		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
 		perror("recvfrom");
 		exit(1);
 	}
     // buf[numbytes] = '\0';
 	// printf("listener: packet contains \"%s\"\n", buf);
-    // ?????????????????????????????????????????? why str cmp doesn't work? 
-    // strcmp(buf, "ftp") won't work
+    // ?????????????????????????????????????????? why str cmp doesn't work?
+    // strcmp(buf, "ftp"); //won't work
     
     if((strncmp(buf, "ftp",3)==0)){
         if ((numbytes = sendto(sockfd, "yes", strlen("yes"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {

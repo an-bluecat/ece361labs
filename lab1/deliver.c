@@ -14,9 +14,9 @@ IP: 128.100.13.153
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include<unistd.h>
+#include <unistd.h>
 
-#define MAXBUFLEN 100
+#define MAXBUFLEN 65535
 // #define SERVERPORT "4950" // the port users will be connecting to
 int main(int argc, char *argv[]){
     int sockfd;
@@ -63,22 +63,33 @@ int main(int argc, char *argv[]){
     // split
     char *token = strtok(command, " "); 
     if(strcmp(token, "ftp")!=0){
-        printf("please enter: ftp <file name>");
+        printf("please enter: ftp <file name>\n");
     }
     token = strtok(NULL, " ");
     if(token==NULL){ // end of string
-        printf("not enough argument");
+        printf("not enough argument\n");
         exit(1);
     }
     char filename[MAXBUFLEN];
     strcpy(filename, token);
-    printf("looking for file:%s", filename);
-    // ????????????????????????????????????????????? the following doesn't work:
-    // if(access(filename, F_OK) == -1){
-    //     printf("no such file in the directory");
-    //     exit(1);
-    // }
+    printf("looking for file: %s", filename);
 
+    // trim filename
+    char *tmp = filename;
+    int len = strlen(tmp);
+
+    while(isspace(tmp[len-1])) tmp[--len] = 0;
+    while(*tmp && isspace(* tmp)) ++tmp, --len;
+
+    memmove(filename, tmp, len+1);
+
+    if(access(filename, F_OK) == -1){
+        printf("no such file in the directory\n");
+        exit(1);
+    }
+
+    // measure time
+    clock_t t = clock();
 
     //send "ftp" to server
     if ((numbytes = sendto(sockfd, "ftp", strlen("ftp"), 0, p->ai_addr, p->ai_addrlen)) == -1) {
@@ -95,13 +106,19 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
     printf("listener: packet contains \"%s\"\n", buf);
-    // ?????????????????????????????????????????? why str cmp doesn't work?
-    if(strcmp(buf, "yes")==0){
-        printf("a file transfer can start");
-    }else{
-        printf("Error: didn't receive yes from server");
+
+    if (strcmp(buf, "yes")==0){
+        printf("a file transfer can start\n");
+    } else{
+        printf("Error: didn't receive yes from server\n");
+
         exit(1);
     }
+
+    // measure time
+    t = clock() - t;
+    printf("The round trip took %fms\n", (double)t);
+
     freeaddrinfo(servinfo);
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);
