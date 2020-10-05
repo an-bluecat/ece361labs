@@ -92,7 +92,7 @@ int main(int argc, char const *argv[])
     // ?????????????????????????????????????????? why str cmp doesn't work?
     // strcmp(buf, "ftp"); //won't work
     
-    if((strncmp(buf, "ftp",3)==0)){
+    if((strcmp(buf, "ftp")==0)){
         if ((numbytes = sendto(sockfd, "yes", strlen("yes"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
             perror("deliver: sendto");
             exit(1);
