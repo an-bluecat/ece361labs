@@ -88,6 +88,9 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
+    // measure time
+    clock_t t = clock();
+
     //send "ftp" to server
     if ((numbytes = sendto(sockfd, "ftp", strlen("ftp"), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("deliver: sendto");
@@ -103,12 +106,17 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
     printf("listener: packet contains \"%s\"\n", buf);
-    if(strcmp(buf, "yes")==0){
+    if (strcmp(buf, "yes")==0){
         printf("a file transfer can start\n");
-    }else{
+    } else{
         printf("Error: didn't receive yes from server\n");
         exit(1);
     }
+
+    // measure time
+    t = clock() - t;
+    printf("The round trip took %fms\n", (double)t);
+
     freeaddrinfo(servinfo);
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);

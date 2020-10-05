@@ -13,6 +13,7 @@ listener.c -- a datagram sockets "server" demo
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <time.h>
 
 // #define MYPORT "4950"
 #define MAXBUFLEN 65535
