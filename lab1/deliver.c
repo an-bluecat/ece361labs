@@ -15,6 +15,8 @@ IP: 128.100.13.153
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <bool.h>
+#include "packet.h"
 
 #define MAXBUFLEN 65535
 // #define SERVERPORT "4950" // the port users will be connecting to
@@ -111,7 +113,6 @@ int main(int argc, char *argv[]){
         printf("a file transfer can start\n");
     } else{
         printf("Error: didn't receive yes from server\n");
-
         exit(1);
     }
 
@@ -119,6 +120,67 @@ int main(int argc, char *argv[]){
     t = clock() - t;
     printf("The round trip took %fms\n", (double)t);
 
+    /* lab3: transfer the actual file */
+    FILE *f=fopen(filename,"r");
+    fseek(f, 0, SEEK_END); // seek to end of file
+    int fsize = ftell(f); // get current file pointer
+    fseek(f, 0, SEEK_SET); // seek back to beginning of file
+    printf("fileLen: %d", fsize);
+    int num_frag= floor((float)(fsize/1000))+1; //number of fragments needed
+    int frag_num=1;
+    while(1){
+        //fill in packet information
+        packet pac;
+        pac.total_frag=num_frag;
+        pac.frag_no=frag_num;
+        if(frag_no==total_frag)){ //last one
+            pac.size=fsize%1000;
+        }else{
+            pac.size=1000;
+        }
+
+        //convert package into a string
+        //... code here
+        char pacStr=pacToStr(pac);)
+
+        // read the file into filedata
+        fread((void*)packet.filedata, sizeof(char), pac.size, f);
+
+        // sent to server
+        if((numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , p->ai_addr, p->ai_addrlen)) == -1) {
+            printf("error for sending packet\n");
+            exit(1);
+        }
+
+        
+        // receive from server a "yes", for each package
+        if (
+            (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
+        ) {
+            perror("recvfrom");
+            exit(1);
+        }
+        // printf("listener: packet contains \"%s\"\n", buf);
+        if (strcmp(buf, "yes")==0){
+            printf("fragment ack received\n");
+        } else{
+            printf("Error: didn't receive yes from server for the fragment\n");
+            exit(1);
+        }
+
+        // last one sent and received, break
+        if (frag_num==num_frag){
+            break;
+        }
+        // add 1, continue
+        frag_num=frag_num+1;
+    }
+
+
+
+
+
+    /* close */
     freeaddrinfo(servinfo);
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);
