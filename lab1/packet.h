@@ -11,10 +11,17 @@ typedef struct packet{
 } packet;
 
 
-
+// encoude packet to string
 char* pacToStr(packet pac){
-    int size=sizeof(packet);
-    printf("size is %d", size);
-    char result=(char*) malloc(size);
-    return &result;
+    char result[1200];
+    // int size=sizeof(packet);
+    // printf("size is %d", size);
+    // result=(char*) malloc(size);
+    return result;
+}
+
+// parse string to packet
+packet strToPac(char*){
+    packet pac;
+    return pac;
 }

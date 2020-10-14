@@ -14,6 +14,8 @@ listener.c -- a datagram sockets "server" demo
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <time.h>
+#include <stdbool.h>
+#include "packet.h"
 
 // #define MYPORT "4950"
 #define MAXBUFLEN 65535
@@ -114,6 +116,57 @@ int main(int argc, char const *argv[])
 	// printf("listener: packet is %d bytes long\n", numbytes);
 	// buf[numbytes] = '\0';
 	// printf("listener: packet contains \"%s\"\n", buf);
+
+	/* receive package from client */
+	FILE *f = NULL;
+    char *fileName;
+    bool firstPacket = true;
+	while(1){
+		// receive from client the package
+		if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN , 0,
+		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
+		perror("recvfrom error in package transfer");
+		exit(1);
+		}
+		// parse packet
+		packet pac=strToPac(buf);
+
+		// first packet: create filename and open file
+		if(firstPacket){
+			// add "copy" to the back
+			int slen=strlen(pac.filename)+strlen("copy");
+			fileName.malloc(sizeof(char*)*(slen));
+            strcpy(fileName, pac.filename);
+			strcat(fileName, "copy");
+			if( (f = fopen(fileName, "wb")) != 1){
+				printf("can't create file");
+				exit(1);
+			}
+			firstPacket=false;
+		}
+
+		// write to file
+		// not sure if it works
+		for (size_t i = 0; i < sizeof(pac.filedata) / sizeof(pac.filedata[0]); i++){
+        	fputc(pac.filedata[i], f);                  // Write an unsigned char (byte) from myArray to the file
+		}
+
+		// send ack to deliver
+		if ((numbytes = sendto(sockfd, "ack", strlen("ack"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+            perror("deliver: sendto");
+            exit(1);
+        }
+
+		// last packet
+		if(pac.frag_no==pac.total_frag){
+			fclose(f);
+			break;
+		}
+    	
+
+	}
+
+
 
 	close(sockfd);
 

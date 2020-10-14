@@ -15,7 +15,7 @@ IP: 128.100.13.153
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <bool.h>
+#include <stdbool.h>
 #include "packet.h"
 
 #define MAXBUFLEN 65535
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]){
         }
 
         
-        // receive from server a "yes", for each package
+        // receive from server a "ACK", for each package
         if (
             (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
         ) {
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]){
             exit(1);
         }
         // printf("listener: packet contains \"%s\"\n", buf);
-        if (strcmp(buf, "yes")==0){
+        if (strcmp(buf, "ACK")==0){
             printf("fragment ack received\n");
         } else{
             printf("Error: didn't receive yes from server for the fragment\n");
