@@ -67,7 +67,7 @@ packet strToPac(char* str){
 	memcpy(pac.filedata, tmp, strlen(tmp)+1);
 	// strcpy(pac.filedata, tmp);
 	printf("------");
-	printf("%s\n", pac.filedata);
+	printf("%d\n%s\n", strlen(pac.filedata), pac.filedata);
 
 	// printf("%s\n", pac.filedata);
 
@@ -179,6 +179,7 @@ int main(int argc, char const *argv[])
 		printf("%d\n", strlen(buf_));
 		printf("%s\n", buf_);
 		packet pac=strToPac(buf_);
+		printf("-----this-----%d\n%s\n", strlen(pac.filedata), pac.filedata);
 		// exit(1);
 
 		// first packet: create filename and open file
@@ -199,8 +200,7 @@ int main(int argc, char const *argv[])
 		}
 
 		// write to file
-		printf("-----this-----%s\n", pac.filedata);
-		fputs(pac.filedata, f);
+		fwrite(pac.filedata, pac.size, sizeof(char), f);
 
 		// send ack to deliver
 		if ((numbytes = sendto(sockfd, "ACK", strlen("ACK"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
