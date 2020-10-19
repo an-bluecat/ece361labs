@@ -38,7 +38,7 @@ char* pacToStr(packet pac){
     sprintf(result+strlen(result), "%s", pac.filename);
     memcpy(result+strlen(result), ";", sizeof(char));
 
-    memcpy(result+strlen(result), pac.filedata, sizeof(char)*1000);
+    memcpy(result+strlen(result), pac.filedata, sizeof(char)*pac.size);
     // exit(0);
     // printf("%d", strlen(result));
     return result;
@@ -208,7 +208,9 @@ int main(int argc, char *argv[]){
         //convert package into a string
         // printf("%i, %i, %i", strlen(pac.filedata), pac.total_frag, pac.frag_no); // test
         char *pacStr=pacToStr(pac);
+        printf("---------------------------------");
         printf("%d\n", strlen(pacStr));
+        printf("%s\n", pacStr);
 
         // sent to server
         if((numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {

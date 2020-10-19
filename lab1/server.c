@@ -63,8 +63,11 @@ packet strToPac(char* str){
 
 	*ptr = 0;
 	tmp = ptr+1;
-	memcpy(pac.filedata, tmp, pac.size);
-	// printf("%d\n", strlen(pac.filedata));
+	memset(pac.filedata, 0, sizeof(pac.filedata));
+	memcpy(pac.filedata, tmp, strlen(tmp)+1);
+	// strcpy(pac.filedata, tmp);
+	printf("------");
+	printf("%s\n", pac.filedata);
 
 	// printf("%s\n", pac.filedata);
 
@@ -163,6 +166,7 @@ int main(int argc, char const *argv[])
     bool firstPacket = true;
 	char *buf_[MAXBUFLEN];
 	while(1){
+		memset(buf_, 0, sizeof(buf_));
 		// receive from client the package
 		if ((numbytes = recvfrom(sockfd, buf_, MAXBUFLEN , 0,
 		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
@@ -171,9 +175,10 @@ int main(int argc, char const *argv[])
 		}
 
 		// parse packet
+		printf("----------------------------------");
 		printf("%d\n", strlen(buf_));
+		printf("%s\n", buf_);
 		packet pac=strToPac(buf_);
-		// printf("%s, %s, %i, %i, %i", pac.filedata, pac.filename, pac.size, pac.total_frag, pac.frag_no); // test
 		// exit(1);
 
 		// first packet: create filename and open file
@@ -194,7 +199,8 @@ int main(int argc, char const *argv[])
 		}
 
 		// write to file
-		fprintf(f, pac.filedata);
+		printf("-----this-----%s\n", pac.filedata);
+		fputs(pac.filedata, f);
 
 		// send ack to deliver
 		if ((numbytes = sendto(sockfd, "ACK", strlen("ACK"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
