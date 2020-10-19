@@ -30,13 +30,65 @@ listener.c -- a datagram sockets "server" demo
 // 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 // }
 
+// parse string to packet
+packet strToPac(char* str){
+    packet pac;
+	char* ptr = str;
+
+	char* tmp = str;
+	while (*ptr != ';') {ptr++;}
+	pac.total_frag = atoi(tmp);
+	// printf("%d\n", pac.total_frag);
+
+	*ptr = 0;
+	tmp = ptr+1;
+	ptr++;
+	while (*ptr != ';') {ptr++;}
+	// printf("%s\n", tmp);
+	pac.frag_no = atoi(tmp);
+
+	*ptr = 0;
+	tmp = ptr+1;
+	ptr++;
+	while (*ptr != ';') {ptr++;}
+	pac.size = atoi(tmp);
+	// printf("%d\n", pac.size);
+
+	*ptr = 0;
+	tmp = ptr+1;
+	ptr++;
+	while (*ptr != ';') {ptr++;}
+	pac.filename = tmp;
+	// printf("%s\n", pac.filename);
+
+	*ptr = 0;
+	tmp = ptr+1;
+	memcpy(pac.filedata, tmp, pac.size);
+	// printf("%d\n", strlen(pac.filedata));
+
+	// printf("%s\n", pac.filedata);
+
+	// char *token = strtok(str, ";");
+	// pac.total_frag = atoi(token);
+	// token = strtok(NULL, ";");
+	// pac.frag_no = atoi(token);
+	// token = strtok(NULL, ";");
+	// pac.size = atoi(token);
+	// token = strtok(NULL, ";");
+	// pac.filename = (char*)malloc(strlen(token)*sizeof(char*));
+	// strcpy(pac.filename, token);
+	// token = strtok(NULL, ";");
+	// strcpy(pac.filedata, token);
+	// printf("%s, %s, %i, %i, %i", pac.filedata, pac.filename, pac.size, pac.total_frag, pac.frag_no); // test
+    return pac;
+}
+
 int main(int argc, char const *argv[])
 {
     if (argc != 2) {
         fprintf(stderr,"Error: please input <UDP listen port>\n");
         exit(1);
     }
-    // int MYPORT = atoi(argv[1]);
 
 	int sockfd;
 	struct addrinfo hints, *servinfo, *p;
@@ -45,7 +97,6 @@ int main(int argc, char const *argv[])
 	struct sockaddr_storage their_addr;
 	char buf[MAXBUFLEN];
 	socklen_t addr_len;
-	// char s[INET6_ADDRSTRLEN];
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
@@ -89,10 +140,6 @@ int main(int argc, char const *argv[])
 		perror("recvfrom");
 		exit(1);
 	}
-    // buf[numbytes] = '\0';
-	// printf("listener: packet contains \"%s\"\n", buf);
-    // ?????????????????????????????????????????? why str cmp doesn't work?
-    // strcmp(buf, "ftp"); //won't work
     
     if((strcmp(buf, "ftp")==0)){
         if ((numbytes = sendto(sockfd, "yes", strlen("yes"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
@@ -109,50 +156,48 @@ int main(int argc, char const *argv[])
             printf("sent no\n");
         }
     }
-	// printf("listener: got packet from %s\n",
-	// 	inet_ntop(their_addr.ss_family,
-	// 		get_in_addr((struct sockaddr *)&their_addr),
-	// 		s, sizeof s));
-	// printf("listener: packet is %d bytes long\n", numbytes);
-	// buf[numbytes] = '\0';
-	// printf("listener: packet contains \"%s\"\n", buf);
 
 	/* receive package from client */
 	FILE *f = NULL;
     char *fileName;
     bool firstPacket = true;
+	char *buf_[MAXBUFLEN];
 	while(1){
 		// receive from client the package
-		if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN , 0,
+		if ((numbytes = recvfrom(sockfd, buf_, MAXBUFLEN , 0,
 		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
-		perror("recvfrom error in package transfer");
-		exit(1);
+			perror("recvfrom error in package transfer");
+			exit(1);
 		}
+
 		// parse packet
-		packet pac=strToPac(buf);
+		printf("%d\n", strlen(buf_));
+		packet pac=strToPac(buf_);
+		// printf("%s, %s, %i, %i, %i", pac.filedata, pac.filename, pac.size, pac.total_frag, pac.frag_no); // test
+		// exit(1);
 
 		// first packet: create filename and open file
 		if(firstPacket){
 			// add "copy" to the back
-			int slen=strlen(pac.filename)+strlen("copy");
-			fileName.malloc(sizeof(char*)*(slen));
-            strcpy(fileName, pac.filename);
-			strcat(fileName, "copy");
-			if( (f = fopen(fileName, "wb")) != 1){
+			int slen=strlen(pac.filename)+strlen("copy-");
+			fileName = (char*)malloc(sizeof(char*)*(slen));
+            strcpy(fileName, "copy-");
+			
+			strcat(fileName, pac.filename);
+			f = fopen(fileName, "w");
+			if(!f){
 				printf("can't create file");
 				exit(1);
 			}
 			firstPacket=false;
+			free(fileName);
 		}
 
 		// write to file
-		// not sure if it works
-		for (size_t i = 0; i < sizeof(pac.filedata) / sizeof(pac.filedata[0]); i++){
-        	fputc(pac.filedata[i], f);                  // Write an unsigned char (byte) from myArray to the file
-		}
+		fprintf(f, pac.filedata);
 
 		// send ack to deliver
-		if ((numbytes = sendto(sockfd, "ack", strlen("ack"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+		if ((numbytes = sendto(sockfd, "ACK", strlen("ACK"), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
             perror("deliver: sendto");
             exit(1);
         }
@@ -162,11 +207,8 @@ int main(int argc, char const *argv[])
 			fclose(f);
 			break;
 		}
-    	
 
 	}
-
-
 
 	close(sockfd);
 

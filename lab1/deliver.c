@@ -16,9 +16,59 @@ IP: 128.100.13.153
 #include <netdb.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <math.h>
 #include "packet.h"
 
 #define MAXBUFLEN 65535
+
+
+// helper
+char* pacToStr(packet pac){
+    char *result = malloc(1200*sizeof(char));
+
+    sprintf(result, "%d", pac.total_frag);
+    memcpy(result+strlen(result), ";", sizeof(char));
+
+    sprintf(result+strlen(result), "%d", pac.frag_no);
+    memcpy(result+strlen(result), ";", sizeof(char));
+
+    sprintf(result+strlen(result), "%d", pac.size);
+    memcpy(result+strlen(result), ";", sizeof(char));
+
+    sprintf(result+strlen(result), "%s", pac.filename);
+    memcpy(result+strlen(result), ";", sizeof(char));
+
+    memcpy(result+strlen(result), pac.filedata, sizeof(char)*1000);
+    // exit(0);
+    // printf("%d", strlen(result));
+    return result;
+
+    // char total_frag[10];
+    // char frag_no[10];
+    // char size[10];
+    // sprintf(total_frag, "%d", pac.total_frag);
+    // strcpy(result, total_frag);
+    // strcat(result, ";");
+    // sprintf(frag_no, "%d", pac.frag_no);
+    // strcat(result, frag_no);
+    // strcat(result, ";");
+    // sprintf(size, "%d", pac.size);
+    // strcat(result, size);
+    // strcat(result, ";");
+    // strcat(result, pac.filename);
+    // strcat(result, ";");
+    // strcat(result, pac.filedata);
+    // return result;
+}
+
+void slice_str(const char * str, char * buffer, size_t start, size_t end) {
+    size_t j = 0;
+    for ( size_t i = start; i <= end; ++i ) {
+        buffer[j++] = str[i];
+    }
+    buffer[j] = 0;
+}
+
 // #define SERVERPORT "4950" // the port users will be connecting to
 int main(int argc, char *argv[]){
     int sockfd;
@@ -125,33 +175,46 @@ int main(int argc, char *argv[]){
     fseek(f, 0, SEEK_END); // seek to end of file
     int fsize = ftell(f); // get current file pointer
     fseek(f, 0, SEEK_SET); // seek back to beginning of file
-    printf("fileLen: %d", fsize);
+    printf("fileLen: %d\n", fsize);
     int num_frag= floor((float)(fsize/1000))+1; //number of fragments needed
     int frag_num=1;
+
+    char data[fsize];
+    fread(data, sizeof(char), fsize, f);
+
     while(1){
+
         //fill in packet information
         packet pac;
         pac.total_frag=num_frag;
         pac.frag_no=frag_num;
-        if(frag_no==total_frag)){ //last one
+        if(pac.frag_no==pac.total_frag){ //last one
             pac.size=fsize%1000;
         }else{
             pac.size=1000;
         }
+        slice_str(data, pac.filedata, (pac.frag_no-1)*1000, (pac.frag_no-1)*1000+pac.size-1);
+        // printf("%d\n", strlen(pac.filedata));
+        // printf("%s\n", pac.filedata);
+
+        pac.filename = (char*)malloc(sizeof(char*)*strlen(filename));
+        strcpy(pac.filename, filename);
+
+        // test packet properties
+        // printf("%s, %s, %i, %i, %i", pac.filedata, pac.filename, pac.size, pac.total_frag, pac.frag_no);
+        // printf("\n");
+        // exit(1);
 
         //convert package into a string
-        //... code here
-        char pacStr=pacToStr(pac);)
-
-        // read the file into filedata
-        fread((void*)packet.filedata, sizeof(char), pac.size, f);
+        // printf("%i, %i, %i", strlen(pac.filedata), pac.total_frag, pac.frag_no); // test
+        char *pacStr=pacToStr(pac);
+        printf("%d\n", strlen(pacStr));
 
         // sent to server
-        if((numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , p->ai_addr, p->ai_addrlen)) == -1) {
+        if((numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
             printf("error for sending packet\n");
             exit(1);
         }
-
         
         // receive from server a "ACK", for each package
         if (
@@ -176,14 +239,12 @@ int main(int argc, char *argv[]){
         frag_num=frag_num+1;
     }
 
-
-
-
-
     /* close */
     freeaddrinfo(servinfo);
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);
+
+    fclose(f);
     
     return 0;
 }
