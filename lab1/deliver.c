@@ -171,7 +171,11 @@ int main(int argc, char *argv[]){
     t = clock() - t;
     printf("The round trip took %fms\n", (double)t/CLOCKS_PER_SEC*1000);
 
-    /* lab3: transfer the actual file */
+    /* section 3 & 4: transfer the actual file */
+
+
+
+
     FILE *f=fopen(filename,"r");
     fseek(f, 0, SEEK_END); // seek to end of file
     int fsize = ftell(f); // get current file pointer
@@ -182,6 +186,24 @@ int main(int argc, char *argv[]){
 
     char data[fsize];
     fread(data, sizeof(char), fsize, f);
+
+    // set initial timeout
+    // https://stackoverflow.com/questions/4181784/how-to-set-socket-timeout-in-c-when-making-multiple-connections
+    struct timeval timeout;      
+    // timeout.tv_sec = 1;     //seconds
+    // timeout.tv_usec = 0;    //microseconds
+
+    // if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+    //             sizeof(timeout)) < 0){
+    //     error("setsockopt failed\n");
+    // }
+    double td=(double)t/CLOCKS_PER_SEC*1000000;
+    bool firstPac=true;
+    clock_t estimatedRTT=td;
+	clock_t devRTT = td;
+    clock_t sampleRTT, dev;
+    clock_t start, finish;
+    double sampleRTT_d;
 
     while(1){
 
@@ -194,31 +216,36 @@ int main(int argc, char *argv[]){
         }else{
             pac.size=1000;
         }
+        // fill filedata
         slice_str(data, pac.filedata, (pac.frag_no-1)*1000, (pac.frag_no-1)*1000+pac.size-1);
-        // printf("%d\n", strlen(pac.filedata));
-        // printf("%s\n", pac.filedata);
-
+        // fill filename
         pac.filename = (char*)malloc(sizeof(char*)*strlen(filename));
         strcpy(pac.filename, filename);
-
-        // test packet properties
-        // printf("%s, %s, %i, %i, %i", pac.filedata, pac.filename, pac.size, pac.total_frag, pac.frag_no);
-        // printf("\n");
-        // exit(1);
-
-        //convert package into a string
-        // printf("%i, %i, %i", strlen(pac.filedata), pac.total_frag, pac.frag_no); // test
+        // parse to string
         char *pacStr=pacToStr(pac);
-        // printf("---------------------------------");
-        // printf("%d\n", strlen(pacStr));
-        // printf("%s\n", pacStr);
 
         // sent to server
         if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
             printf("error for sending packet\n");
             exit(1);
         }
+        clock_t start = clock();
+
+        // set timeout
+        if(firstPac){
+            timeout.tv_sec = 1;     //seconds
+            timeout.tv_usec = 0;    //microseconds
+            firstPac=false;
+        }else{
+            timeout.tv_sec = 0;
+        }
+        if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                    sizeof(timeout)) < 0){
+            error("setsockopt failed\n");
+        }
         
+        
+
         // receive from server a "ACK", for each package
         if (
             (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
@@ -226,13 +253,26 @@ int main(int argc, char *argv[]){
             perror("recvfrom");
             exit(1);
         }
+
         // printf("listener: packet contains \"%s\"\n", buf);
         if (strcmp(buf, "ACK")==0){
             // printf("fragment ack received\n");
         } else{
-            printf("Error: didn't receive yes from server for the fragment\n");
+            printf("Error: didn't receive ACK from server for the fragment\n");
             exit(1);
         }
+        clock_t finish= clock();
+        
+        // calculate new RTT
+        sampleRTT = finish - start;
+        sampleRTT_d=(double)t/CLOCKS_PER_SEC*1000000; // get micro second
+        printf("rawRTT%ld\n", sampleRTT);
+        printf("sampleRTT %f\n", sampleRTT_d);
+	    estimatedRTT = 0.875 * ((double) estimatedRTT) + (sampleRTT >> 3);
+	    dev = (estimatedRTT > sampleRTT) ? (estimatedRTT - sampleRTT) : (sampleRTT - estimatedRTT);
+	    devRTT = 0.75 * ((double) devRTT) + (dev >> 2);
+        timeout.tv_usec = 20 * estimatedRTT + (devRTT << 2);
+        printf("timtout sec %ld\n", timeout.tv_usec);
 
         // last one sent and received, break
         if (frag_num==num_frag){
