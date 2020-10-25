@@ -199,11 +199,10 @@ int main(int argc, char *argv[]){
     // }
     double td=(double)t/CLOCKS_PER_SEC*1000000;
     bool firstPac=true;
-    clock_t estimatedRTT=td;
-	clock_t devRTT = td;
-    clock_t sampleRTT, dev;
-    clock_t start, finish;
-    double sampleRTT_d;
+    double estimatedRTT=td;
+	double devRTT = td;
+    clock_t devRTT_term, diff, start, finish;
+    double sampleRTT;
 
     while(1){
 
@@ -250,8 +249,16 @@ int main(int argc, char *argv[]){
         if (
             (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
         ) {
-            perror("recvfrom");
+            // timeout: set new timeout, then retransmit
+            timeout.tv_usec*=2;
+            if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                    sizeof(timeout)) < 0){
+            error("setsockopt failed\n");
+            }
+            if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
+            printf("error for sending packet\n");
             exit(1);
+            }
         }
 
         // printf("listener: packet contains \"%s\"\n", buf);
@@ -264,14 +271,17 @@ int main(int argc, char *argv[]){
         clock_t finish= clock();
         
         // calculate new RTT
-        sampleRTT = finish - start;
-        sampleRTT_d=(double)t/CLOCKS_PER_SEC*1000000; // get micro second
-        printf("rawRTT%ld\n", sampleRTT);
-        printf("sampleRTT %f\n", sampleRTT_d);
-	    estimatedRTT = 0.875 * ((double) estimatedRTT) + (sampleRTT >> 3);
-	    dev = (estimatedRTT > sampleRTT) ? (estimatedRTT - sampleRTT) : (sampleRTT - estimatedRTT);
-	    devRTT = 0.75 * ((double) devRTT) + (dev >> 2);
-        timeout.tv_usec = 20 * estimatedRTT + (devRTT << 2);
+        diff = finish - start;
+        sampleRTT=(double)diff/CLOCKS_PER_SEC*1000000; // get micro second
+        printf("sampleRTT%ld\n", sampleRTT);
+	    estimatedRTT = 0.875 * ((double) estimatedRTT) + (sampleRTT*0.125);
+        if(estimatedRTT > sampleRTT){
+            devRTT_term = estimatedRTT - sampleRTT;
+        }else{
+            devRTT_term = sampleRTT - estimatedRTT;
+        }
+	    devRTT = 0.75 * ((double) devRTT) + (devRTT_term*0.25);
+        timeout.tv_usec = estimatedRTT + 4* devRTT;
         printf("timtout sec %ld\n", timeout.tv_usec);
 
         // last one sent and received, break
