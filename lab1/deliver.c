@@ -17,6 +17,7 @@ IP: 128.100.13.153
 #include <unistd.h>
 #include <stdbool.h>
 #include <math.h>
+#include <time.h>
 #include "packet.h"
 
 #define MAXBUFLEN 65535
@@ -168,7 +169,7 @@ int main(int argc, char *argv[]){
 
     // measure time
     t = clock() - t;
-    printf("The round trip took %fms\n", (double)t);
+    printf("The round trip took %fms\n", (double)t/CLOCKS_PER_SEC*1000);
 
     /* lab3: transfer the actual file */
     FILE *f=fopen(filename,"r");
@@ -208,12 +209,12 @@ int main(int argc, char *argv[]){
         //convert package into a string
         // printf("%i, %i, %i", strlen(pac.filedata), pac.total_frag, pac.frag_no); // test
         char *pacStr=pacToStr(pac);
-        printf("---------------------------------");
-        printf("%d\n", strlen(pacStr));
-        printf("%s\n", pacStr);
+        // printf("---------------------------------");
+        // printf("%d\n", strlen(pacStr));
+        // printf("%s\n", pacStr);
 
         // sent to server
-        if((numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
+        if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
             printf("error for sending packet\n");
             exit(1);
         }
@@ -227,7 +228,7 @@ int main(int argc, char *argv[]){
         }
         // printf("listener: packet contains \"%s\"\n", buf);
         if (strcmp(buf, "ACK")==0){
-            printf("fragment ack received\n");
+            // printf("fragment ack received\n");
         } else{
             printf("Error: didn't receive yes from server for the fragment\n");
             exit(1);
