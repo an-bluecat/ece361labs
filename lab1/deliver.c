@@ -169,7 +169,7 @@ int main(int argc, char *argv[]){
 
     // measure time
     t = clock() - t;
-    printf("The round trip took %fms\n", (double)t/CLOCKS_PER_SEC*1000);
+    printf("The round trip took %f micro second\n", (double)t/CLOCKS_PER_SEC*1000000);
 
     /* section 3 & 4: transfer the actual file */
 
@@ -223,17 +223,12 @@ int main(int argc, char *argv[]){
         // parse to string
         char *pacStr=pacToStr(pac);
 
-        // sent to server
-        if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
-            printf("error for sending packet\n");
-            exit(1);
-        }
-        clock_t start = clock();
 
+        clock_t start = clock();
         // set timeout
         if(firstPac){
-            timeout.tv_sec = 1;     //seconds
-            timeout.tv_usec = 0;    //microseconds
+            timeout.tv_sec = 0;     //seconds
+            timeout.tv_usec = 1;    //microseconds
             firstPac=false;
         }else{
             timeout.tv_sec = 0;
@@ -242,19 +237,40 @@ int main(int argc, char *argv[]){
                     sizeof(timeout)) < 0){
             error("setsockopt failed\n");
         }
+
+        // sent to server
+        if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
+            printf("error for sending packet\n");
+            exit(1);
+        }
         
+
+        // // set timeout
+        // if(firstPac){
+        //     timeout.tv_sec = 0;     //seconds
+        //     timeout.tv_usec = 1;    //microseconds
+        //     firstPac=false;
+        // }else{
+        //     timeout.tv_sec = 0;
+        // }
+        // if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+        //             sizeof(timeout)) < 0){
+        //     error("setsockopt failed\n");
+        // }
         
 
         // receive from server a "ACK", for each package
         if (
             (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
         ) {
+            printf("timeout, retransmitting");
             // timeout: set new timeout, then retransmit
             timeout.tv_usec*=2;
             if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
                     sizeof(timeout)) < 0){
             error("setsockopt failed\n");
             }
+            // retransmit
             if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
             printf("error for sending packet\n");
             exit(1);
@@ -268,12 +284,12 @@ int main(int argc, char *argv[]){
             printf("Error: didn't receive ACK from server for the fragment\n");
             exit(1);
         }
-        clock_t finish= clock();
+        finish= clock();
         
         // calculate new RTT
         diff = finish - start;
         sampleRTT=(double)diff/CLOCKS_PER_SEC*1000000; // get micro second
-        printf("sampleRTT%ld\n", sampleRTT);
+        printf("sampleRTT%f\n", sampleRTT);
 	    estimatedRTT = 0.875 * ((double) estimatedRTT) + (sampleRTT*0.125);
         if(estimatedRTT > sampleRTT){
             devRTT_term = estimatedRTT - sampleRTT;

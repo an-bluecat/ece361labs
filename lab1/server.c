@@ -20,16 +20,6 @@ listener.c -- a datagram sockets "server" demo
 // #define MYPORT "4950"
 #define MAXBUFLEN 65535
 
-// get sockaddr, IPv4 or IPv6:
-// void *get_in_addr(struct sockaddr *sa)
-// {
-// 	if (sa->sa_family == AF_INET) {
-// 		return &(((struct sockaddr_in*)sa)->sin_addr);
-// 	}
-
-// 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
-// }
-
 // parse string to packet
 packet strToPac(char* str){
     packet pac;
@@ -44,7 +34,6 @@ packet strToPac(char* str){
 	tmp = ptr+1;
 	ptr++;
 	while (*ptr != ';') {ptr++;}
-	// printf("%s\n", tmp);
 	pac.frag_no = atoi(tmp);
 
 	*ptr = 0;
@@ -52,37 +41,18 @@ packet strToPac(char* str){
 	ptr++;
 	while (*ptr != ';') {ptr++;}
 	pac.size = atoi(tmp);
-	// printf("%d\n", pac.size);
 
 	*ptr = 0;
 	tmp = ptr+1;
 	ptr++;
 	while (*ptr != ';') {ptr++;}
 	pac.filename = tmp;
-	// printf("%s\n", pac.filename);
+
 
 	*ptr = 0;
 	tmp = ptr+1;
 	memset(pac.filedata, 0, sizeof(pac.filedata));
 	memcpy(pac.filedata, tmp, pac.size*sizeof(char));
-	// strcpy(pac.filedata, tmp);
-	// printf("------");
-	// printf("%d\n%s\n", strlen(pac.filedata), pac.filedata);
-
-	// printf("%s\n", pac.filedata);
-
-	// char *token = strtok(str, ";");
-	// pac.total_frag = atoi(token);
-	// token = strtok(NULL, ";");
-	// pac.frag_no = atoi(token);
-	// token = strtok(NULL, ";");
-	// pac.size = atoi(token);
-	// token = strtok(NULL, ";");
-	// pac.filename = (char*)malloc(strlen(token)*sizeof(char*));
-	// strcpy(pac.filename, token);
-	// token = strtok(NULL, ";");
-	// strcpy(pac.filedata, token);
-	// printf("%s, %s, %i, %i, %i", pac.filedata, pac.filename, pac.size, pac.total_frag, pac.frag_no); // test
     return pac;
 }
 
@@ -175,12 +145,7 @@ int main(int argc, char const *argv[])
 		}
 
 		// parse packet
-		// printf("----------------------------------");
-		// printf("%d\n", strlen(buf_));
-		// printf("%s\n", buf_);
 		packet pac=strToPac(buf_);
-		// printf("-----this-----%d\n%s\n", strlen(pac.filedata), pac.filedata);
-		// exit(1);
 
 		// first packet: create filename and open file
 		if(firstPacket){
