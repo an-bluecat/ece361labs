@@ -144,6 +144,9 @@ int main(int argc, char const *argv[])
 			exit(1);
 		}
 
+		// inf loop to test timeout
+		while(1) {}
+
 		// parse packet
 		packet pac=strToPac(buf_);
 
