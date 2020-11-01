@@ -189,14 +189,10 @@ int main(int argc, char *argv[]){
 
     // set initial timeout
     // https://stackoverflow.com/questions/4181784/how-to-set-socket-timeout-in-c-when-making-multiple-connections
-    struct timeval timeout;      
-    // timeout.tv_sec = 1;     //seconds
-    // timeout.tv_usec = 0;    //microseconds
+        
 
-    // if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-    //             sizeof(timeout)) < 0){
-    //     error("setsockopt failed\n");
-    // }
+
+
     double td=(double)t/CLOCKS_PER_SEC*1000000;
     bool firstPac=true;
     double estimatedRTT=td;
@@ -204,8 +200,17 @@ int main(int argc, char *argv[]){
     clock_t devRTT_term, diff, start, finish;
     double sampleRTT;
 
-    while(1){
+    struct timeval timeout;  
+    timeout.tv_sec = 0;     //seconds
+    timeout.tv_usec = estimatedRTT;    //microseconds
 
+    if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                    sizeof(timeout)) < 0){
+            error("setsockopt failed\n");
+    }
+
+    while(1){
+        printf("timtout is set to %ld sec %ld usec\n", timeout.tv_sec, timeout.tv_usec);
         //fill in packet information
         packet pac;
         pac.total_frag=num_frag;
@@ -226,17 +231,14 @@ int main(int argc, char *argv[]){
 
         clock_t start = clock();
         // set timeout
-        if(firstPac){
-            timeout.tv_sec = 0;     //seconds
-            timeout.tv_usec = 1;    //microseconds
-            firstPac=false;
-        }else{
-            timeout.tv_sec = 0;
-        }
-        if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-                    sizeof(timeout)) < 0){
-            error("setsockopt failed\n");
-        }
+        // if(firstPac){
+        //     timeout.tv_sec = 0;     //seconds
+        //     timeout.tv_usec = 1;    //microseconds
+        //     firstPac=false;
+        // }else{
+        //     timeout.tv_sec = 0;
+        // }
+
 
         // sent to server
         if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
@@ -245,18 +247,6 @@ int main(int argc, char *argv[]){
         }
         
 
-        // // set timeout
-        // if(firstPac){
-        //     timeout.tv_sec = 0;     //seconds
-        //     timeout.tv_usec = 1;    //microseconds
-        //     firstPac=false;
-        // }else{
-        //     timeout.tv_sec = 0;
-        // }
-        // if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-        //             sizeof(timeout)) < 0){
-        //     error("setsockopt failed\n");
-        // }
         
 
         // receive from server a "ACK", for each package
@@ -265,16 +255,30 @@ int main(int argc, char *argv[]){
         ) {
             printf("timeout, retransmitting");
             // timeout: set new timeout, then retransmit
-            timeout.tv_usec*=2;
-            if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-                    sizeof(timeout)) < 0){
-            error("setsockopt failed\n");
+            int re=0;
+            //retransmit 10 times
+            while(re<10){
+                timeout.tv_usec*=1.1;
+                // if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                //         sizeof(timeout)) < 0){
+                // error("setsockopt failed\n");
+                // }
+                // retransmit
+                if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
+                    printf("sentto error\n");
+                }
+                if((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1){
+                    printf("timeout again, retransmitting\n");
+                }else{
+                    break;
+                }
+                re++;
             }
-            // retransmit
-            if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
-            printf("error for sending packet\n");
-            exit(1);
+            if(re==10){
+                printf("retransmit too many times, exit");
+                exit(1);
             }
+            
         }
 
         // printf("listener: packet contains \"%s\"\n", buf);
@@ -298,7 +302,9 @@ int main(int argc, char *argv[]){
         }
 	    devRTT = 0.75 * ((double) devRTT) + (devRTT_term*0.25);
         timeout.tv_usec = estimatedRTT + 4* devRTT;
-        printf("timtout sec %ld\n", timeout.tv_usec);
+
+        
+
 
         // last one sent and received, break
         if (frag_num==num_frag){

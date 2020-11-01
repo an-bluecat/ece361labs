@@ -19,6 +19,7 @@ listener.c -- a datagram sockets "server" demo
 
 // #define MYPORT "4950"
 #define MAXBUFLEN 65535
+bool tryTimeout=false;
 
 // parse string to packet
 packet strToPac(char* str){
@@ -165,6 +166,14 @@ int main(int argc, char const *argv[])
 
 			// printf("%s", buf_);
 		}
+		
+		if(tryTimeout){
+			while(1){
+				int n=1;
+				n++;
+			}
+		}
+		
 
 		// write to file
 		fwrite(pac.filedata, pac.size, sizeof(char), f);
