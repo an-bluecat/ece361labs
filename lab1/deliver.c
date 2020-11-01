@@ -173,6 +173,9 @@ int main(int argc, char *argv[]){
 
     /* section 3 & 4: transfer the actual file */
 
+
+
+
     FILE *f=fopen(filename,"r");
     fseek(f, 0, SEEK_END); // seek to end of file
     int fsize = ftell(f); // get current file pointer
@@ -212,7 +215,6 @@ int main(int argc, char *argv[]){
         }else{
             pac.size=1000;
         }
-
         // fill filedata
         slice_str(data, pac.filedata, (pac.frag_no-1)*1000, (pac.frag_no-1)*1000+pac.size-1);
         // fill filename
@@ -221,28 +223,23 @@ int main(int argc, char *argv[]){
         // parse to string
         char *pacStr=pacToStr(pac);
 
-        clock_t start = clock();
 
+        clock_t start = clock();
         // set timeout
         if(firstPac){
             timeout.tv_sec = 0;     //seconds
             timeout.tv_usec = 1;    //microseconds
             firstPac=false;
         }else{
-            printf("%li\n", timeout.tv_sec);
-            timeout.tv_sec += (long int)floor(timeout.tv_usec/1000);
-            printf("%li\n", timeout.tv_sec);
-            timeout.tv_usec = (long int)timeout.tv_usec%1000;
+            timeout.tv_sec = 0;
         }
-        printf("%lis, %lims\n", timeout.tv_sec, timeout.tv_usec);
         if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
                     sizeof(timeout)) < 0){
             error("setsockopt failed\n");
         }
 
-        printf("transfering fragment...");
         // sent to server
-        if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) < 0) {
+        if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
             printf("error for sending packet\n");
             exit(1);
         }
@@ -264,20 +261,11 @@ int main(int argc, char *argv[]){
 
         // receive from server a "ACK", for each package
         if (
-            (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) < 0
+            (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
         ) {
-            printf("timeout, retransmitting\n");
+            printf("timeout, retransmitting");
             // timeout: set new timeout, then retransmit
-
-            if (timeout.tv_sec > 10) {
-                printf("The server is taking too long to respond, abort.");
-                exit(1);
-            }
-
             timeout.tv_usec*=2;
-            timeout.tv_sec*=2;
-
-            /*
             if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
                     sizeof(timeout)) < 0){
             error("setsockopt failed\n");
@@ -287,8 +275,6 @@ int main(int argc, char *argv[]){
             printf("error for sending packet\n");
             exit(1);
             }
-            */
-            continue;
         }
 
         // printf("listener: packet contains \"%s\"\n", buf);
