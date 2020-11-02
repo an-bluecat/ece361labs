@@ -178,7 +178,7 @@ int main(int argc, char *argv[]){
 
     FILE *f=fopen(filename,"r");
     fseek(f, 0, SEEK_END); // seek to end of file
-    int fsize = ftell(f); // get current file pointer
+    long int fsize = ftell(f); // get current file pointer
     fseek(f, 0, SEEK_SET); // seek back to beginning of file
     printf("fileLen: %d\n", fsize);
     int num_frag= floor((float)(fsize/1000))+1; //number of fragments needed
@@ -203,6 +203,7 @@ int main(int argc, char *argv[]){
     struct timeval timeout;  
     timeout.tv_sec = 0;     //seconds
     timeout.tv_usec = estimatedRTT;    //microseconds
+    // timeout.tv_usec = 0;    //microseconds
 
     if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
                     sizeof(timeout)) < 0){
@@ -251,9 +252,9 @@ int main(int argc, char *argv[]){
 
         // receive from server a "ACK", for each package
         if (
-            (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
+            (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) < 0
         ) {
-            printf("timeout, retransmitting");
+            printf("timeout, retransmitting\n");
             // timeout: set new timeout, then retransmit
             int re=0;
             //retransmit 10 times
@@ -267,7 +268,7 @@ int main(int argc, char *argv[]){
                 if((numbytes = sendto(sockfd, pacStr, 1200*sizeof(char), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1) {
                     printf("sentto error\n");
                 }
-                if((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1){
+                if((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) <0){
                     printf("timeout again, retransmitting\n");
                 }else{
                     break;

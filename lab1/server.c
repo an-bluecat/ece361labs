@@ -166,13 +166,13 @@ int main(int argc, char const *argv[])
 
 			// printf("%s", buf_);
 		}
-		
 		if(tryTimeout){
 			while(1){
 				int n=1;
 				n++;
 			}
 		}
+
 		
 
 		// write to file
@@ -183,7 +183,13 @@ int main(int argc, char const *argv[])
             perror("deliver: sendto");
             exit(1);
         }
-
+		if(pac.frag_no>10){
+			while(1){
+				int n=1;
+				n++;
+			}
+		}
+		
 		// last packet
 		if(pac.frag_no==pac.total_frag){
 			fclose(f);
