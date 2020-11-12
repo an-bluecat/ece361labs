@@ -19,52 +19,20 @@ IP: 128.100.13.155
 #include <time.h>
 #include "packet.h"
 
+
 #define MAXBUFLEN 65535
 
+char loggedInClient[200];
+bool loggedIn=false;
 
-// helper
-char* pacToStr(packet pac){
-    char *result = malloc(1200*sizeof(char));
+int sockfd;
+struct addrinfo hints, *servinfo, *p;
+int rv;
+int numbytes;
 
-    sprintf(result, "%d", pac.type);
-    memcpy(result+strlen(result), ";", sizeof(char));
+void login(char* token, int *sockfd){
 
-    sprintf(result+strlen(result), "%d", pac.size);
-    memcpy(result+strlen(result), ";", sizeof(char));
 
-    // sprintf(result+strlen(result), "%s", pac.source);
-    memcpy(result+strlen(result), pac.source, sizeof(char)*strlen(pac.source));
-    memcpy(result+strlen(result), ";", sizeof(char));
-
-    memcpy(result+strlen(result), pac.data, sizeof(char)*strlen(pac.data));
-
-    return result;
-
-}
-
-void slice_str(const char * str, char * buffer, size_t start, size_t end) {
-    size_t j = 0;
-    for ( size_t i = start; i <= end; ++i ) {
-        buffer[j++] = str[i];
-    }
-    buffer[j] = 0;
-}
-
-int main(){
-    int sockfd;
-    struct addrinfo hints, *servinfo, *p;
-    int rv;
-    int numbytes;
-    /********** login ************/
-	//start typing commands
-	char command[MAXBUFLEN]; 
-    fgets(command, MAXBUFLEN, stdin); 
-
-    // split, take first: /login
-    char *token = strtok(command, " "); 
-    if(strcmp(token, "/login")!=0){
-        printf("please login: /login <id> <pw> <serverIP> <port>\n");
-    }
     // clientID
     token = strtok(NULL, " "); 
     if(token==NULL){ // end of string
@@ -142,23 +110,99 @@ int main(){
     loginPac.type=LOGIN;
     strcpy(loginPac.source, clientID); // can't do assignment with char array
     strcpy(loginPac.data, password);
-    // loginPac.size=strlen(loginPac.data);
-    loginPac.size=2;
+    loginPac.size=strlen(loginPac.data);
     char* loginStr=pacToStr(loginPac);
     printf("loginStr is :%s\n", loginStr);
 
+    // send login info to server
     if ((numbytes = sendto(sockfd, loginStr, strlen(loginStr), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("client: sendto");
         exit(1);
     }
 
-
-
-
-
-
-    /* close */
+    // receive from server...
+    char buf[MAXBUFLEN];
+    socklen_t addr_len=sizeof(p->ai_addr);
+    if (
+        (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
+        ) {
+		perror("recvfrom");
+		exit(1);
+	}
+    printf("client: packet contains \"%s\"\n", buf);
+    packet response=strToPac(buf);
+    if(response.type==LO_ACK){ //receive LO_ACK, log in successful
+        printf("login successful!\n");
+        loggedIn=true;
+        strcpy(loggedInClient, clientID);
+    }else{
+        printf("login unsuccessful! check your clientID and password\n");
+    }
     freeaddrinfo(servinfo);
+
+
+    return;
+}
+
+void slice_str(const char * str, char * buffer, size_t start, size_t end) {
+    size_t j = 0;
+    for ( size_t i = start; i <= end; ++i ) {
+        buffer[j++] = str[i];
+    }
+    buffer[j] = 0;
+}
+
+int main(){
+    // int sockfd;
+    // struct addrinfo hints, *servinfo, *p;
+    // int rv;
+    // int numbytes;
+    
+    while(1){
+        //start typing commands
+        printf(">");
+        char command[MAXBUFLEN]; 
+        fgets(command, MAXBUFLEN, stdin); 
+
+        // split, take first
+        char *token = strtok(command, " "); 
+        if(strcmp(token, "/quit")==0){ //quit
+            printf("quitting...");
+            exit(0);
+        }
+        if(loggedIn==false){ // have to login first
+            if(strcmp(token, "/login")!=0){
+                printf("please login: /login <id> <pw> <serverIP> <port>\n");
+            }else{
+                login(token, &sockfd);
+                printf("loggedin=%d, your clientID is:%s", loggedIn, loggedInClient);
+            }
+        }else{
+            if(strcmp(token, "/logout")==0){
+                if(loggedIn==true){
+                    loggedIn=false;
+                }else{
+                    printf("You are trying to log out , but no user is logged in\n");
+                }
+            }else if(strcmp(token, "/joinsession")==0){
+
+            }else if(strcmp(token, "/leavesession")==0){
+                
+            }else if(strcmp(token, "/createsession")==0){
+                
+            }else if(strcmp(token, "/list")==0){
+                
+            }else{// send text
+                continue;
+            }
+
+        }
+
+    }
+	
+    
+    /* close */
+    // freeaddrinfo(servinfo);
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);
 

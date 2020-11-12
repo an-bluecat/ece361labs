@@ -12,37 +12,68 @@
 #include <stdbool.h>
 #include "packet.h"
 
-// #define MYPORT "4950"
 #define MAXBUFLEN 65535
-bool tryTimeout=false;
 
-// parse string to packet
-packet strToPac(char* str){
-    packet pac;
-	char* ptr = str;
+int sockfd;
+struct addrinfo hints, *servinfo, *p;
+int rv;
+int numbytes;
+struct sockaddr_storage their_addr;
+socklen_t addr_len;
 
-	char* tmp = str;
-	while (*ptr != ';') {ptr++;}
-	pac.type = atoi(tmp);
-	// printf("%d\n", pac.total_frag);
+void login(packet pac){
 
-	*ptr = 0;
-	tmp = ptr+1;
-	ptr++;
-	while (*ptr != ';') {ptr++;}
-	pac.size = atoi(tmp);
+	printf("client ID: %s, password: %s\n", pac.source, pac.data);
 
-	*ptr = 0;
-	tmp = ptr+1;
-	memset(pac.source, 0, sizeof(pac.source));
-	memcpy(pac.source, tmp, strlen(pac.source)*sizeof(char));
+	//check in userdb is combo is valid
+	FILE* file = fopen("userdb.txt", "r"); /* should check the result */
+	char line[256];
+	bool identified=false;
+	while (fgets(line, sizeof(line), file)) {
+		/* note that fgets don't strip the terminating \n, checking its
+		presence would allow to handle lines longer that sizeof(line) */
+		// printf("%s\n", line); 
 
-	*ptr = 0;
-	tmp = ptr+1;
-	memset(pac.data, 0, sizeof(pac.data));
-	memcpy(pac.data, tmp, strlen(pac.data)*sizeof(char));
-
-    return pac;
+		//check userdb
+		char *ptr = strtok(line, " ");
+		char *id=ptr;
+		ptr = strtok(NULL, " \n");
+		printf("id:%s", id);
+		printf("password:%s\n", ptr);
+		// compare with client data
+		if(strcmp(pac.source,id)==0 && strcmp(pac.data,ptr)==0){
+			identified=true;
+			break;
+		}
+	}
+	if(identified){ //send LO_ACK
+		packet loAck;
+		loAck.type=LO_ACK;
+		strcpy(loAck.source,"empty");
+		strcpy(loAck.data,"empty");
+		loAck.size=strlen(loAck.data);
+		char *loAckStr=pacToStr(loAck);
+		if ((numbytes = sendto(sockfd, loAckStr, strlen(loAckStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+			perror("client: sendto");
+			exit(1);
+		}else{
+				printf("sent LO_ACK\n");
+		}
+	}else{	//send LO_NAK
+		packet loAck;
+		loAck.type=LO_NAK;
+		strcpy(loAck.source,"empty");
+		strcpy(loAck.data,"empty");
+		loAck.size=strlen(loAck.data);
+		char *loAckStr=pacToStr(loAck);
+		if ((numbytes = sendto(sockfd, loAckStr, strlen(loAckStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+			perror("client: sendto");
+			exit(1);
+		}else{
+				printf("sent LO_NAK\n");
+		}
+	}
+	fclose(file);
 }
 
 int main(int argc, char const *argv[])
@@ -52,13 +83,14 @@ int main(int argc, char const *argv[])
         exit(1);
     }
 
-	int sockfd;
-	struct addrinfo hints, *servinfo, *p;
-	int rv;
-	int numbytes;
-	struct sockaddr_storage their_addr;
+	// int sockfd;
+	// struct addrinfo hints, *servinfo, *p;
+	// int rv;
+	// int numbytes;
+	// struct sockaddr_storage their_addr;
+	// socklen_t addr_len;
 	char buf[MAXBUFLEN];
-	socklen_t addr_len;
+	
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
@@ -93,20 +125,26 @@ int main(int argc, char const *argv[])
 	}
 
 	freeaddrinfo(servinfo);
-
-    // receive "ftp" from deliver.c
-	printf("server: waiting to recvfrom...\n");
-	addr_len = sizeof their_addr;
-	if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN , 0,
-		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
-		perror("recvfrom");
-		exit(1);
+	while(1){
+		// receive from client.c
+		printf("server: waiting to recvfrom...\n");
+		addr_len = sizeof their_addr;
+		if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN , 0,
+			(struct sockaddr *)&their_addr, &addr_len)) == -1) {
+			perror("recvfrom");
+			exit(1);
+		}
+		
+		printf("received the following: %s\n", buf);
+		
+		packet pac=strToPac(buf);
+		
+		if(pac.type==LOGIN){
+			login(pac);
+		}
 	}
     
-    printf("received the following: %s\n", buf);
 	
-	packet pac=strToPac(buf);
-	printf("client ID: %s, password: %s\n", pac.source, pac.data);
 
 
 	close(sockfd);

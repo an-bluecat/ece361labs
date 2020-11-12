@@ -11,6 +11,62 @@ typedef struct message {
     unsigned char data[MAX_DATA]; //data
 } packet;
 
+char *my_itoa(int num, char *str)
+{
+        if(str == NULL)
+        {
+                return NULL;
+        }
+        sprintf(str, "%d", num);
+        return str;
+}
+
+
+char* pacToStr(packet pac){
+    char *result = malloc(1200*sizeof(char));
+    char type[5];
+    my_itoa(pac.type, type);
+    char size[5];
+    my_itoa(pac.size, size);
+    strcpy(result, type);
+    strcat(result, ";");
+    strcat(result, size);
+    strcat(result, ";");
+    strcat(result, pac.source);
+    strcat(result, ";");
+    strcat(result, pac.data);
+    return result;
+}
+
+// parse string to packet
+packet strToPac(char* str){
+	packet pac;
+
+	char* token = strtok(str, ";"); 
+    if(token==NULL){
+        printf("not enough argument\n");
+        exit(1);
+    }
+	pac.type = atoi(token);
+
+	token = strtok(NULL, ";"); 
+    if(token==NULL){
+        printf("not enough argument\n");
+        exit(1);
+    }
+	pac.size = atoi(token);
+
+	token = strtok(NULL, ";"); 
+    strcpy(pac.source, token);
+    // printf("password is: %s\n", pac);
+
+	token = strtok(NULL, "\0"); 
+    strcpy(pac.data, token);
+
+    return pac;
+}
+
+
 #define LOGIN 0
 #define LO_ACK 1
 #define LO_NAK 2
