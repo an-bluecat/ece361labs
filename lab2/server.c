@@ -11,6 +11,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include "packet.h"
+#include <dirent.h> 
 
 #define MAXBUFLEN 65535
 
@@ -20,6 +21,16 @@ int rv;
 int numbytes;
 struct sockaddr_storage their_addr;
 socklen_t addr_len;
+
+int cfileexists(const char * filename){
+    /* try to open file to read */
+    FILE *file;
+    if (file = fopen(filename, "r")){
+        fclose(file);
+        return 1;
+    }
+    return 0;
+}
 
 void login(packet pac){
 
@@ -74,10 +85,223 @@ void login(packet pac){
 		}
 	}
 	fclose(file);
+
+	return;
 }
+
+
+void join(packet pac){
+
+	printf("client ID: %s, want to join session: %s\n", pac.source, pac.data);
+
+	// find session file in sessiondb folder
+	char filename[100] = "./sessiondb/";
+	strcat(filename, pac.data);
+	int identified = cfileexists(filename);
+
+	// add user into this session's file
+    if(identified){
+        printf("File %s exist\n",filename);
+		FILE *f = fopen(filename, "w");
+		fprintf(f, pac.source);
+		fprintf(f, " ");
+		fclose(f);
+	}
+    else{
+        printf("File %s does not exist\n",filename);
+	}
+
+	// send ACK back to client
+	if(identified){ //send JN_ACK
+		packet jnAck;
+		jnAck.type=JN_ACK;
+		strcpy(jnAck.source,"empty");
+		strcpy(jnAck.data, pac.data); // pack sessionID into jnAck.data
+		jnAck.size=strlen(jnAck.data);
+		char *jnAckStr=pacToStr(jnAck);
+		//send ACK to client
+		if ((numbytes = sendto(sockfd, jnAckStr, strlen(jnAckStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+			perror("client: sendto");
+			exit(1);
+		}else{
+			printf("sent JN_ACK\n");
+		}
+	}else{	//send LO_NAK
+		packet jnAck;
+		jnAck.type=JN_NAK;
+		strcpy(jnAck.source,"empty");
+		strcpy(jnAck.data, "no such session exist in server"); // pack sessionID into jnAck.data
+		jnAck.size=strlen(jnAck.data);
+		char *jnAckStr=pacToStr(jnAck);
+		//send ACK to client
+		if ((numbytes = sendto(sockfd, jnAckStr, strlen(jnAckStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+			perror("client: sendto");
+			exit(1);
+		}else{
+				printf("sent JN_NAK\n");
+		}
+	}
+
+	return;
+}
+
+void create(packet pac){
+
+	printf("client ID: %s, want to create session: %s\n", pac.source, pac.data);
+
+	// find session file in sessiondb folder
+	char filename[100] = "./sessiondb/";
+	strcat(filename, pac.data);
+	int identified = cfileexists(filename);
+
+	// create a file if not exist, and send ACK
+    if(!identified){ 
+		// not exist, create file
+		FILE *f = fopen(filename, "w");
+		fclose(f);
+		// send ACK
+		packet ack;
+		ack.type=NS_ACK;
+		strcpy(ack.source,"empty");
+		strcpy(ack.data, pac.data); // pack sessionID into jnAck.data
+		ack.size=strlen(ack.data);
+		char *ackStr=pacToStr(ack);
+		//send ACK to client
+		if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+			perror("client: sendto");
+			exit(1);
+		}else{
+				printf("sent NS_ACK\n");
+		}
+	}
+    else{
+		// send NAK
+		packet ack;
+		ack.type=LO_NAK;
+		strcpy(ack.source,"empty");
+		strcpy(ack.data, "session already exist");
+		ack.size=strlen(ack.data);
+		char *ackStr=pacToStr(ack);
+		//send ACK to client
+		if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+			perror("client: sendto");
+			exit(1);
+		}else{
+				printf("sent NS_ACK\n");
+		}
+	}
+
+	return;
+}
+
+void query(packet pac){
+
+	char qresult[5000];
+
+	struct dirent *de;  // Pointer for directory entry 
+  
+    // opendir() returns a pointer of DIR type.  
+    DIR *dr = opendir("./sessiondb"); 
+  
+    if (dr == NULL)  // opendir returns NULL if couldn't open directory 
+    { 
+        printf("Could not open current directory" ); 
+        return 0; 
+    } 
+  
+    // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html 
+    // for readdir() 
+    while ((de = readdir(dr)) != NULL) 
+            printf("%s\n", de->d_name); 
+  
+    closedir(dr);     
+	// // find session file in sessiondb folder
+	// char filename[100] = "./sessiondb/";
+	// strcat(filename, pac.data);
+	// int identified = cfileexists(filename);
+
+	// // create a file if not exist, and send ACK
+    // if(!identified){ 
+	// 	// not exist, create file
+	// 	FILE *f = fopen(filename, "w");
+	// 	fclose(f);
+	// 	// send ACK
+	// 	packet ack;
+	// 	ack.type=NS_ACK;
+	// 	strcpy(ack.source,"empty");
+	// 	strcpy(ack.data, pac.data); // pack sessionID into jnAck.data
+	// 	ack.size=strlen(ack.data);
+	// 	char *ackStr=pacToStr(ack);
+	// 	//send ACK to client
+	// 	if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+	// 		perror("client: sendto");
+	// 		exit(1);
+	// 	}else{
+	// 			printf("sent NS_ACK\n");
+	// 	}
+	// }
+    // else{
+	// 	// send NAK
+	// 	packet ack;
+	// 	ack.type=LO_NAK;
+	// 	strcpy(ack.source,"empty");
+	// 	strcpy(ack.data, "session already exist");
+	// 	ack.size=strlen(ack.data);
+	// 	char *ackStr=pacToStr(ack);
+	// 	//send ACK to client
+	// 	if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+	// 		perror("client: sendto");
+	// 		exit(1);
+	// 	}else{
+	// 			printf("sent NS_ACK\n");
+	// 	}
+	// }
+
+}
+
 
 int main(int argc, char const *argv[])
 {
+	// char qresult[1000];
+	// strcpy(qresult, "ok:");
+	// struct dirent *de;  // Pointer for directory entry 
+  
+    // // opendir() returns a pointer of DIR type.  
+    // DIR *dr = opendir("./sessiondb"); 
+  
+    // if (dr == NULL)  
+    // { 
+    //     printf("Could not open current directory" ); 
+    //     return 0; 
+    // } 
+	
+	// // open
+    // // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html for readdir() 
+    // while ((de = readdir(dr)) != NULL){
+	// 	char fname[100];
+	// 	strcpy(fname, de);
+	// 	if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
+	// 		printf(" ok here0");
+	// 		printf(" ok here1");
+	// 		strcat(qresult, de->d_name);
+	// 		printf(" ok here2");
+	// 		strcat(qresult, " has user: ");
+	// 		FILE* file = fopen(de->d_name, "r");
+	// 		char line[256];
+	// 		while (fgets(line, sizeof(line), file)) {
+	// 			strcat(qresult, line);
+	// 		}
+	// 		// add end of line for this file
+	// 		printf(" ok here3");
+	// 		strcat(qresult, " \n");
+	// 	}
+
+	// }
+	// printf("%s\n",qresult);
+    // closedir(dr);     
+
+
+
     if (argc != 2) {
         fprintf(stderr,"Error: please input <UDP listen port>\n");
         exit(1);
@@ -101,7 +325,6 @@ int main(int argc, char const *argv[])
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
-
 	// loop through all the results and bind to the first we can
 	for(p = servinfo; p != NULL; p = p->ai_next) {
 		if ((sockfd = socket(p->ai_family, p->ai_socktype,
@@ -118,13 +341,14 @@ int main(int argc, char const *argv[])
 
 		break;
 	}
-
 	if (p == NULL) {
 		fprintf(stderr, "server: failed to bind socket\n");
 		return 2;
 	}
 
 	freeaddrinfo(servinfo);
+
+
 	while(1){
 		// receive from client.c
 		printf("server: waiting to recvfrom...\n");
@@ -141,11 +365,14 @@ int main(int argc, char const *argv[])
 		
 		if(pac.type==LOGIN){
 			login(pac);
+		}else if(pac.type==JOIN){
+			join(pac);
+		}else if(pac.type==NEW_SESS){
+			create(pac);
+		}else if(pac.type=QUERY){
+			query(pac);
 		}
 	}
-    
-	
-
 
 	close(sockfd);
 
