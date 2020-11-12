@@ -26,21 +26,18 @@ IP: 128.100.13.155
 char* pacToStr(packet pac){
     char *result = malloc(1200*sizeof(char));
 
-    sprintf(result, "%d", pac.total_frag);
-    memcpy(result+strlen(result), ";", sizeof(char));
-
-    sprintf(result+strlen(result), "%d", pac.frag_no);
+    sprintf(result, "%d", pac.type);
     memcpy(result+strlen(result), ";", sizeof(char));
 
     sprintf(result+strlen(result), "%d", pac.size);
     memcpy(result+strlen(result), ";", sizeof(char));
 
-    sprintf(result+strlen(result), "%s", pac.filename);
+    // sprintf(result+strlen(result), "%s", pac.source);
+    memcpy(result+strlen(result), pac.source, sizeof(char)*strlen(pac.source));
     memcpy(result+strlen(result), ";", sizeof(char));
 
-    memcpy(result+strlen(result), pac.filedata, sizeof(char)*pac.size);
-    // exit(0);
-    // printf("%d", strlen(result));
+    memcpy(result+strlen(result), pac.data, sizeof(char)*strlen(pac.data));
+
     return result;
 
 }
@@ -58,15 +55,18 @@ int main(){
     struct addrinfo hints, *servinfo, *p;
     int rv;
     int numbytes;
-
+    /********** login ************/
 	//start typing commands
 	char command[MAXBUFLEN]; 
     fgets(command, MAXBUFLEN, stdin); 
-    char *token = strtok(command, " "); // split, take first: /login
+
+    // split, take first: /login
+    char *token = strtok(command, " "); 
     if(strcmp(token, "/login")!=0){
         printf("please login: /login <id> <pw> <serverIP> <port>\n");
     }
-    token = strtok(NULL, " "); // clientID
+    // clientID
+    token = strtok(NULL, " "); 
     if(token==NULL){ // end of string
         printf("not enough argument\n");
         exit(1);
@@ -74,8 +74,8 @@ int main(){
     char clientID[MAXBUFLEN];
     strcpy(clientID, token);
     printf("clientID is: %s\n", clientID);
-
-	token = strtok(NULL, " "); // password
+    // password
+	token = strtok(NULL, " "); 
     if(token==NULL){
         printf("not enough argument\n");
         exit(1);
@@ -83,8 +83,8 @@ int main(){
     char* password=(char *) malloc(strlen(token));
     strcpy(password, token);
     printf("password is: %s\n", password);
-
-	token = strtok(NULL, " "); // server-IP
+    // server-IP
+	token = strtok(NULL, " "); 
     if(token==NULL){
         printf("not enough argument\n");
         exit(1);
@@ -92,8 +92,8 @@ int main(){
     char* serverIP=(char *) malloc(strlen(token));
     strcpy(serverIP, token);
     printf("serverIP is: %s\n", serverIP);
-
-	token = strtok(NULL, " "); // servrerPort
+    // servrerPort
+	token = strtok(NULL, " \n"); // this one is different!!! has to be \n for the last
     if(token==NULL){
         printf("not enough argument\n");
         exit(1);
@@ -101,6 +101,7 @@ int main(){
     char* serverPort=(char *) malloc(strlen(token));
     strcpy(serverPort, token);
     printf("servrerPort is: %s\n", serverPort);
+    // printf("strlen: %ld", strlen(serverPort));
 
     // Sets the first num bytes of the block of memory pointed by ptr to the specified value (interpreted as an unsigned char).
     memset(&hints, 0, sizeof hints);
@@ -110,8 +111,7 @@ int main(){
     // const char *service, // e.g. "http" or port number
     // const struct addrinfo *hints, // carries addr information
     // struct addrinfo **res);
-	int ptnum= atoi(serverPort);
-    if ((rv = getaddrinfo("ug155", ptnum, &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(serverIP, serverPort, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -138,10 +138,21 @@ int main(){
     printf("IDPass: %s\n", IDPass);
 
     //send to server IDPass: <clientID> <Password>
-    if ((numbytes = sendto(sockfd, IDPass, strlen(IDPass), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+    packet loginPac;
+    loginPac.type=LOGIN;
+    strcpy(loginPac.source, clientID); // can't do assignment with char array
+    strcpy(loginPac.data, password);
+    // loginPac.size=strlen(loginPac.data);
+    loginPac.size=2;
+    char* loginStr=pacToStr(loginPac);
+    printf("loginStr is :%s\n", loginStr);
+
+    if ((numbytes = sendto(sockfd, loginStr, strlen(loginStr), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("client: sendto");
         exit(1);
     }
+
+
 
 
 

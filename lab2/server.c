@@ -23,14 +23,8 @@ packet strToPac(char* str){
 
 	char* tmp = str;
 	while (*ptr != ';') {ptr++;}
-	pac.total_frag = atoi(tmp);
+	pac.type = atoi(tmp);
 	// printf("%d\n", pac.total_frag);
-
-	*ptr = 0;
-	tmp = ptr+1;
-	ptr++;
-	while (*ptr != ';') {ptr++;}
-	pac.frag_no = atoi(tmp);
 
 	*ptr = 0;
 	tmp = ptr+1;
@@ -40,15 +34,14 @@ packet strToPac(char* str){
 
 	*ptr = 0;
 	tmp = ptr+1;
-	ptr++;
-	while (*ptr != ';') {ptr++;}
-	pac.filename = tmp;
-
+	memset(pac.source, 0, sizeof(pac.source));
+	memcpy(pac.source, tmp, strlen(pac.source)*sizeof(char));
 
 	*ptr = 0;
 	tmp = ptr+1;
-	memset(pac.filedata, 0, sizeof(pac.filedata));
-	memcpy(pac.filedata, tmp, pac.size*sizeof(char));
+	memset(pac.data, 0, sizeof(pac.data));
+	memcpy(pac.data, tmp, strlen(pac.data)*sizeof(char));
+
     return pac;
 }
 
@@ -110,8 +103,10 @@ int main(int argc, char const *argv[])
 		exit(1);
 	}
     
-    printf("received the following: %s", buf);
-
+    printf("received the following: %s\n", buf);
+	
+	packet pac=strToPac(buf);
+	printf("client ID: %s, password: %s\n", pac.source, pac.data);
 
 
 	close(sockfd);
