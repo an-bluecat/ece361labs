@@ -242,6 +242,73 @@ void createSession(char* token){
     return;
 }
 
+void query(char* token){
+    packet pac;
+    pac.type=QUERY;
+    strcpy(pac.source, loggedInClient); //clientID
+    strcpy(pac.data, "empty");
+    pac.size=strlen(pac.data);
+    char* pacStr=pacToStr(pac);
+    printf("pacStr is :%s\n", pacStr);
+
+    // send session info to server
+    socklen_t addr_len=sizeof(p->ai_addr);
+    if (
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        ) {
+        perror("client: sendto");
+        exit(1);
+    }
+    // receive from server...
+    char buf[MAXBUFLEN];
+    if (
+        (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
+        ) {
+		perror("recvfrom");
+		exit(1);
+	}
+    printf("client: packet contains \"%s\"\n", buf);
+    packet response=strToPac(buf);
+    if(response.type==QU_ACK){ //receive LO_ACK, log in successful
+        printf("query successful!\n");
+        printf("here are the result: \n");
+        printf("%s", response.data);
+    }else{
+        printf("query unsuccessful\n");
+    }
+
+    return;
+}
+
+void sendText(char* token){
+
+
+    char* msg=(char *) malloc(strlen(token));
+    strcpy(msg, token);
+    printf("your message is: %s\n", msg);
+
+    packet pac;
+    pac.type=MESSAGE;
+    strcpy(pac.source, loggedInClient); //clientID
+    strcpy(pac.data, msg); //data=sessionID
+    pac.size=strlen(pac.data);
+    char* pacStr=pacToStr(pac);
+    printf("pacStr is :%s\n", pacStr);
+
+    // send message to server
+    socklen_t addr_len=sizeof(p->ai_addr);
+    if (
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        ) {
+        perror("client: sendto");
+        exit(1);
+    }
+
+
+    return;
+}
+
+
 int main(){
     // int sockfd;
     // struct addrinfo hints, *servinfo, *p;
@@ -279,13 +346,17 @@ int main(){
             }else if(strcmp(token, "/joinsession")==0){
                 joinSession(token);
             }else if(strcmp(token, "/leavesession\n")==0){
-                
+                continue;
             }else if(strcmp(token, "/createsession")==0){
                 createSession(token);
             }else if(strcmp(token, "/list\n")==0){
-                
+                query(token);
             }else{// send text
-                continue;
+                if(!inSession){
+                    printf("you are not in a session yet, can't send text");
+                }else{
+                    sendText(token);
+                }
             }
 
         }

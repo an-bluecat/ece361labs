@@ -195,111 +195,69 @@ void create(packet pac){
 }
 
 void query(packet pac){
-
-	char qresult[5000];
-
+	char qresult[500];
+	// strcpy(qresult, " ");
 	struct dirent *de;  // Pointer for directory entry 
   
     // opendir() returns a pointer of DIR type.  
     DIR *dr = opendir("./sessiondb"); 
   
-    if (dr == NULL)  // opendir returns NULL if couldn't open directory 
+    if (dr == NULL)  
     { 
         printf("Could not open current directory" ); 
         return 0; 
     } 
-  
-    // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html 
-    // for readdir() 
-    while ((de = readdir(dr)) != NULL) 
-            printf("%s\n", de->d_name); 
-  
+	
+	// open
+    // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html for readdir() 
+    while ((de = readdir(dr)) != NULL){
+		char fname[100];
+		char path[100];
+		strcpy(path, "./sessiondb/");
+		strcpy(fname, de->d_name);
+		strcat(path, fname);
+		if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
+			strcat(qresult, fname);
+			strcat(qresult, " has user: ");
+			FILE* file = fopen(path, "r");
+			char line[256];
+			fgets(line, sizeof(line), file);
+			strcat(qresult, line);
+			// add end of line for this file
+			strcat(qresult, " \n");
+			fclose(file);
+		}
+
+	}
+	printf("qresult:\n %s\n",qresult);
     closedir(dr);     
-	// // find session file in sessiondb folder
-	// char filename[100] = "./sessiondb/";
-	// strcat(filename, pac.data);
-	// int identified = cfileexists(filename);
 
-	// // create a file if not exist, and send ACK
-    // if(!identified){ 
-	// 	// not exist, create file
-	// 	FILE *f = fopen(filename, "w");
-	// 	fclose(f);
-	// 	// send ACK
-	// 	packet ack;
-	// 	ack.type=NS_ACK;
-	// 	strcpy(ack.source,"empty");
-	// 	strcpy(ack.data, pac.data); // pack sessionID into jnAck.data
-	// 	ack.size=strlen(ack.data);
-	// 	char *ackStr=pacToStr(ack);
-	// 	//send ACK to client
-	// 	if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
-	// 		perror("client: sendto");
-	// 		exit(1);
-	// 	}else{
-	// 			printf("sent NS_ACK\n");
-	// 	}
-	// }
-    // else{
-	// 	// send NAK
-	// 	packet ack;
-	// 	ack.type=LO_NAK;
-	// 	strcpy(ack.source,"empty");
-	// 	strcpy(ack.data, "session already exist");
-	// 	ack.size=strlen(ack.data);
-	// 	char *ackStr=pacToStr(ack);
-	// 	//send ACK to client
-	// 	if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
-	// 		perror("client: sendto");
-	// 		exit(1);
-	// 	}else{
-	// 			printf("sent NS_ACK\n");
-	// 	}
-	// }
+	// send the query result back to client
+	packet ack;
+	ack.type=QU_ACK;
+	strcpy(ack.source,"empty");
+	strcpy(ack.data, qresult);
+	ack.size=strlen(ack.data);
+	char *ackStr=pacToStr(ack);
+	//send ACK to client
+	if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *) &their_addr, addr_len)) == -1) {
+		perror("client: sendto");
+		exit(1);
+	}else{
+			printf("sent QU_ACK\n");
+	}
 
+}
+
+void handleMsg(packet pac){
+	printf("we are receiving from client: %s", pac.source);
+	printf("the message is: %s", pac.data);
+	return;
 }
 
 
 int main(int argc, char const *argv[])
 {
-	// char qresult[1000];
-	// strcpy(qresult, "ok:");
-	// struct dirent *de;  // Pointer for directory entry 
-  
-    // // opendir() returns a pointer of DIR type.  
-    // DIR *dr = opendir("./sessiondb"); 
-  
-    // if (dr == NULL)  
-    // { 
-    //     printf("Could not open current directory" ); 
-    //     return 0; 
-    // } 
-	
-	// // open
-    // // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html for readdir() 
-    // while ((de = readdir(dr)) != NULL){
-	// 	char fname[100];
-	// 	strcpy(fname, de);
-	// 	if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
-	// 		printf(" ok here0");
-	// 		printf(" ok here1");
-	// 		strcat(qresult, de->d_name);
-	// 		printf(" ok here2");
-	// 		strcat(qresult, " has user: ");
-	// 		FILE* file = fopen(de->d_name, "r");
-	// 		char line[256];
-	// 		while (fgets(line, sizeof(line), file)) {
-	// 			strcat(qresult, line);
-	// 		}
-	// 		// add end of line for this file
-	// 		printf(" ok here3");
-	// 		strcat(qresult, " \n");
-	// 	}
-
-	// }
-	// printf("%s\n",qresult);
-    // closedir(dr);     
-
 
 
     if (argc != 2) {
@@ -369,8 +327,10 @@ int main(int argc, char const *argv[])
 			join(pac);
 		}else if(pac.type==NEW_SESS){
 			create(pac);
-		}else if(pac.type=QUERY){
+		}else if(pac.type==QUERY){
 			query(pac);
+		}else if(pac.type==MESSAGE){
+			handleMsg(pac);
 		}
 	}
 
