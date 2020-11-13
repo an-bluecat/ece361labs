@@ -1,2 +1,4 @@
 session1 
 session2
+/login id pw ug155 9999
+/joinsession session1

@@ -177,7 +177,7 @@ void create(packet pac){
 		packet ack;
 		ack.type=NS_ACK;
 		strcpy(ack.source,"empty");
-		strcpy(ack.data, pac.data); // pack sessionID into jnAck.data
+		strcpy(ack.data, pac.data);
 		ack.size=strlen(ack.data);
 		char *ackStr=pacToStr(ack);
 		//send ACK to client
@@ -332,7 +332,7 @@ int main(int argc, char const *argv[])
 	// int numbytes;
 	// struct sockaddr_storage their_addr;
 	// socklen_t addr_len;
-	char buf[MAXBUFLEN];
+	
 	
 
 	memset(&hints, 0, sizeof hints);
@@ -369,6 +369,8 @@ int main(int argc, char const *argv[])
 
 
 	while(1){
+		char buf[MAXBUFLEN];
+		buf[0]='\0';
 		// receive from client.c
 		printf("server: waiting to recvfrom...\n");
 		addr_len = sizeof their_addr;

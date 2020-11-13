@@ -113,7 +113,7 @@ void login(char* token){
     printf("loginStr is :%s\n", loginStr);
 
     // send login info to server
-    if ((numbytes = sendto(sockfd, loginStr, strlen(loginStr), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+    if ((numbytes = sendto(sockfd, loginStr, strlen(loginStr)+1, 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("client: sendto");
         exit(1);
     }
@@ -167,7 +167,7 @@ void joinSession(char* token){
     if (
         // (numbytes = sendto(sockfd, joinStr, strlen(joinStr), 0, p->ai_addr, p->ai_addrlen)) == -1
         // (numbytes=send(sockfd, joinStr, strlen(joinStr), 0))==-1
-        (numbytes = sendto(sockfd, joinStr, strlen(joinStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        (numbytes = sendto(sockfd, joinStr, strlen(joinStr)+1, 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
         ) {
         perror("client: sendto");
         exit(1);
@@ -202,6 +202,7 @@ void createSession(char* token){
         exit(1);
     }
     printf("toekn: %s, length: %ld", token, strlen(token));
+
     char* sessionID=(char *) malloc(strlen(token));
     strcpy(sessionID, token);
     printf("sessionID is: %s\n", sessionID);
@@ -212,12 +213,12 @@ void createSession(char* token){
     strcpy(joinPac.data, sessionID); //data=sessionID
     joinPac.size=strlen(joinPac.data);
     char* joinStr=pacToStr(joinPac);
-    printf("joinStr is :%s\n", joinStr);
+    printf("we are sending string: %s\n", joinStr);
 
     // send session info to server
     socklen_t addr_len=sizeof(p->ai_addr);
     if (
-        (numbytes = sendto(sockfd, joinStr, strlen(joinStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        (numbytes = sendto(sockfd, joinStr, strlen(joinStr)+1, 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
         ) {
         perror("client: sendto");
         exit(1);
@@ -253,7 +254,7 @@ void query(char* token){
     // send session info to server
     socklen_t addr_len=sizeof(p->ai_addr);
     if (
-        (numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr)+1, 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
         ) {
         perror("client: sendto");
         exit(1);
@@ -297,7 +298,7 @@ void leaveSession(){
     // send session info to server
     socklen_t addr_len=sizeof(p->ai_addr);
     if (
-        (numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr)+1, 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
         ) {
         perror("client: sendto");
         exit(1);
@@ -323,7 +324,7 @@ void sendText(char* token){
     // send message to server
     socklen_t addr_len=sizeof(p->ai_addr);
     if (
-        (numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr)+1, 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
         ) {
         perror("client: sendto");
         exit(1);
