@@ -1,5 +1,3 @@
-
-
 /*
 IP: 128.100.13.155
 */
@@ -203,9 +201,10 @@ void createSession(char* token){
         printf("not enough argument\n");
         exit(1);
     }
+    printf("toekn: %s, length: %ld", token, strlen(token));
     char* sessionID=(char *) malloc(strlen(token));
     strcpy(sessionID, token);
-    printf("servrerPort is: %s\n", sessionID);
+    printf("sessionID is: %s\n", sessionID);
 
     packet joinPac;
     joinPac.type=NEW_SESS;
@@ -280,6 +279,32 @@ void query(char* token){
     return;
 }
 
+void leaveSession(){
+    if(!inSession){
+        printf("You are not in any session\n");
+        return;
+    }else{
+        printf("Leaving Session...\n");
+    }
+    packet pac;
+    pac.type=LEAVE_SESS;
+    strcpy(pac.source, loggedInClient); //clientID
+    strcpy(pac.data, "empty");
+    pac.size=strlen(pac.data);
+    char* pacStr=pacToStr(pac);
+    printf("pacStr is :%s\n", pacStr);
+
+    // send session info to server
+    socklen_t addr_len=sizeof(p->ai_addr);
+    if (
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr), 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        ) {
+        perror("client: sendto");
+        exit(1);
+    }
+    
+}
+
 void sendText(char* token){
 
 
@@ -346,14 +371,14 @@ int main(){
             }else if(strcmp(token, "/joinsession")==0){
                 joinSession(token);
             }else if(strcmp(token, "/leavesession\n")==0){
-                continue;
+                leaveSession();
             }else if(strcmp(token, "/createsession")==0){
                 createSession(token);
             }else if(strcmp(token, "/list\n")==0){
                 query(token);
             }else{// send text
                 if(!inSession){
-                    printf("you are not in a session yet, can't send text");
+                    printf("you are not in a session yet, send text failed\n");
                 }else{
                     sendText(token);
                 }
@@ -369,7 +394,5 @@ int main(){
     // printf("deliver: sent %d bytes to %s\n", numbytes, argv[1]);
     close(sockfd);
 
-    
-    
     return 0;
 }

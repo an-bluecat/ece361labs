@@ -22,6 +22,20 @@ int numbytes;
 struct sockaddr_storage their_addr;
 socklen_t addr_len;
 
+char *strremove(char *str, const char *sub) {
+    char *p, *q, *r;
+    if ((q = r = strstr(str, sub)) != NULL) {
+        size_t len = strlen(sub);
+        while ((r = strstr(p = r + len, sub)) != NULL) {
+            while (p < r)
+                *q++ = *p++;
+        }
+        while ((*q++ = *p++) != '\0')
+            continue;
+    }
+    return str;
+}
+
 int cfileexists(const char * filename){
     /* try to open file to read */
     FILE *file;
@@ -249,8 +263,55 @@ void query(packet pac){
 
 }
 
+
+void leaveSession(packet pac){
+	printf("the cleint <%s> wants to leave the session\n", pac.source);
+	struct dirent *de;  // Pointer for directory entry 
+  
+    // opendir() returns a pointer of DIR type.  
+    DIR *dr = opendir("./sessiondb"); 
+  
+    if (dr == NULL)  
+    { 
+        printf("Could not open current directory" ); 
+        return 0; 
+    } 
+	
+	// go through all files to find client id
+    while ((de = readdir(dr)) != NULL){
+		char fname[100];
+		char path[100];
+		strcpy(path, "./sessiondb/");
+		strcpy(fname, de->d_name);
+		strcat(path, fname);
+		if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
+
+			//open this file
+			FILE* file = fopen(path, "r");
+			char line[256];
+			fgets(line, sizeof(line), file);
+
+			//remove client id from this line
+			char* newLine=strremove(line, pac.source); 
+
+			//if different, then the clientid is removed
+			if(strcmp(newLine, line)!=0){
+				printf("the client is leaving %s\n", fname);
+			}
+			// add end of line for this file
+			fclose(file);
+			file = fopen(path, "w");
+			fprintf(file,"%s",newLine);
+   			fclose(file);
+		}
+
+	}
+
+}
+
+
 void handleMsg(packet pac){
-	printf("we are receiving from client: %s", pac.source);
+	printf("we are receiving text from client: %s\n", pac.source);
 	printf("the message is: %s", pac.data);
 	return;
 }
@@ -331,6 +392,8 @@ int main(int argc, char const *argv[])
 			query(pac);
 		}else if(pac.type==MESSAGE){
 			handleMsg(pac);
+		}else if(pac.type==LEAVE_SESS){
+			leaveSession(pac);
 		}
 	}
 
