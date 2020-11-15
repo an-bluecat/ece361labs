@@ -228,6 +228,7 @@ void create(packet pac){
 
 void query(packet pac){
 	char qresult[500];
+	memset(qresult, 0, sizeof qresult); // flush
 	// strcpy(qresult, " ");
 	struct dirent *de;  // Pointer for directory entry 
   
@@ -250,7 +251,7 @@ void query(packet pac){
 		strcat(path, fname);
 		if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
 			
-			
+			printf("--%s--", path);
 			strcat(qresult, fname);
 			strcat(qresult, " has user: ");
 			FILE* file = fopen(path, "r");
@@ -261,18 +262,19 @@ void query(packet pac){
 				strcat(qresult, " ");
 			}
 			// add end of line for this file
-			strcat(qresult, " \n");
+			strcat(qresult, "\n");
 			fclose(file);
 		}
 
 	}
-	printf("qresult:\n %s",qresult);
+	// printf("qresult:\n %s",qresult);
     closedir(dr);     
 
 	// send the query result back to client
 	packet ack;
 	ack.type=QU_ACK;
 	strcpy(ack.source,"empty");
+	memset(ack.data, 0, sizeof ack.data); // flush
 	strcpy(ack.data, qresult);
 	ack.size=strlen(ack.data);
 	char *ackStr=pacToStr(ack);
@@ -374,9 +376,41 @@ void handleMsg(packet pac){
 
 	printf("-----%s--------", target_path);
 	
-
-	return;
+	// parse the target file
+	FILE * target_file = fopen(target_path, "r");
+	char line[256];
+	while (fgets(line, sizeof(line), target_file)) {
+		char * head = strtok(line, " ");
+		char * ip = strtok(NULL, " ");
+		int port = atoi(strtok(NULL, " "));
+		cast(ip, port, pac.data);
+	}
 }
+
+void cast(char* ip, int port, char* msg) {
+	// send the query result back to client
+	packet m;
+	m.type=QU_ACK;
+	strcpy(m.source,"empty");
+	memset(m.data, 0, sizeof m.data); // flush
+	strcpy(m.data, msg);
+	m.size=strlen(m.data);
+	char *ackStr=pacToStr(m);
+
+	struct sockaddr_in sa;
+	sa.sin_family = AF_INET;
+	sa.sin_port = htons(port);
+	inet_pton(AF_INET, ip, &sa.sin_addr);
+
+	//send ACK to client
+	if ((numbytes = sendto(sockfd, ackStr, strlen(ackStr), 0, (struct sockaddr *)&sa, addr_len)) == -1) {
+		perror("client: sendto");
+		exit(1);
+	}else{
+		printf("sent QU_ACK\n");
+	}
+}
+
 
 // helper, source: https://gist.github.com/jkomyno/45bee6e79451453c7bbdc22d033a282e
 void get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen)

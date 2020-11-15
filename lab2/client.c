@@ -16,6 +16,7 @@ IP: 128.100.13.155
 #include <math.h>
 #include <time.h>
 #include "packet.h"
+#include <pthread.h> 
 
 
 #define MAXBUFLEN 65535
@@ -29,6 +30,8 @@ int sockfd;
 struct addrinfo hints, *servinfo, *p;
 int rv;
 int numbytes;
+
+pthread_mutex_t mutex;
 
 void login(char* token){
     // get clientID from token
@@ -335,15 +338,34 @@ void sendText(char* token){
 }
 
 
+void *recv_msg(void *vargp) {
+    while(1) {
+        char buf[MAXBUFLEN];
+        memset(buf, 0, sizeof buf);
+        socklen_t addr_len=sizeof(p->ai_addr);
+        if (
+            (numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0, (struct sockaddr *) &p->ai_addr, (unsigned int * restrict) &addr_len)) == -1
+        ) {
+            continue;
+        }
+        printf("client: packet contains \"%s\"\n", buf);
+        packet response=strToPac(buf);
+        if (response.type == QU_ACK) {
+            printf("YOU GOT MESSAGE: %s\n", response.data);
+            fflush(stdout);
+        }
+    }
+}
+
 int main(){
     // int sockfd;
     // struct addrinfo hints, *servinfo, *p;
     // int rv;
     // int numbytes;
-    
+    pthread_t thread_id;
+
     while(1){
         //start typing commands
-        printf(">");
         char command[MAXBUFLEN]; 
         fgets(command, MAXBUFLEN, stdin); 
         printf("received command: %s", command);
@@ -358,10 +380,11 @@ int main(){
                 printf("please login: /login <id> <pw> <serverIP> <port>\n");
             }else{
                 login(token);
-                printf("loggedin=%d, your clientID is:%s\n", loggedIn, loggedInClient);
+                printf("loggedin=%d, your clientID is:%s\n", loggedIn, loggedInClient); 
+                pthread_create(&thread_id, NULL, recv_msg, NULL);
             }
         }else{ // if it's logged in
-
+            pthread_cancel(thread_id);
             if(strcmp(token, "/logout\n")==0){
                 if(loggedIn==true){
                     loggedIn=false;
@@ -384,7 +407,7 @@ int main(){
                     sendText(token);
                 }
             }
-
+            pthread_create(&thread_id, NULL, recv_msg, NULL);
         }
 
     }
