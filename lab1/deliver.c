@@ -184,7 +184,8 @@ int main(int argc, char *argv[]){
     int num_frag= floor((float)(fsize/1000))+1; //number of fragments needed
     int frag_num=1;
 
-    char data[fsize];
+    char *data = malloc(fsize*sizeof(char));
+    // char data[fsize];
     fread(data, sizeof(char), fsize, f);
 
     // set initial timeout

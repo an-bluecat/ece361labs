@@ -82,7 +82,7 @@ void login(packet pac){
 			perror("client: sendto");
 			exit(1);
 		}else{
-				printf("sent LO_ACK\n");
+			printf("sent LO_ACK\n");
 		}
 	}else{	//send LO_NAK
 		packet loAck;
@@ -95,7 +95,7 @@ void login(packet pac){
 			perror("client: sendto");
 			exit(1);
 		}else{
-				printf("sent LO_NAK\n");
+			printf("sent LO_NAK\n");
 		}
 	}
 	fclose(file);
@@ -104,7 +104,7 @@ void login(packet pac){
 }
 
 
-void join(packet pac){
+void join(packet pac, char* addr, uint16_t port){
 
 	printf("client ID: %s, want to join session: %s\n", pac.source, pac.data);
 
@@ -115,11 +115,29 @@ void join(packet pac){
 
 	// add user into this session's file
     if(identified){
+
         printf("File %s exist\n",filename);
-		FILE *f = fopen(filename, "w");
-		fprintf(f, pac.source);
-		fprintf(f, " ");
-		fclose(f);
+
+		// check if user is already in session
+		char line[20];
+		FILE *f_ = fopen(filename, "r");
+		bool exist = false;
+		while(fgets(line, sizeof line, f_)) {
+			if(strstr(line, pac.source)) {
+				exist = true;
+			}
+		}
+		if (!exist) {
+			FILE *f = fopen(filename, "a");
+			fprintf(f, pac.source);
+			fprintf(f, " ");
+			fprintf(f, addr);
+			fprintf(f, " ");
+			fprintf(f, "%i", port);
+			fprintf(f, "\n");
+			fclose(f);
+		}
+		fclose(f_);
 	}
     else{
         printf("File %s does not exist\n",filename);
@@ -152,7 +170,7 @@ void join(packet pac){
 			perror("client: sendto");
 			exit(1);
 		}else{
-				printf("sent JN_NAK\n");
+			printf("sent JN_NAK\n");
 		}
 	}
 
@@ -185,7 +203,7 @@ void create(packet pac){
 			perror("client: sendto");
 			exit(1);
 		}else{
-				printf("sent NS_ACK\n");
+			printf("sent NS_ACK\n");
 		}
 	}
     else{
@@ -201,7 +219,7 @@ void create(packet pac){
 			perror("client: sendto");
 			exit(1);
 		}else{
-				printf("sent NS_ACK\n");
+			printf("sent NS_ACK\n");
 		}
 	}
 
@@ -231,19 +249,24 @@ void query(packet pac){
 		strcpy(fname, de->d_name);
 		strcat(path, fname);
 		if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
+			
+			
 			strcat(qresult, fname);
 			strcat(qresult, " has user: ");
 			FILE* file = fopen(path, "r");
 			char line[256];
-			fgets(line, sizeof(line), file);
-			strcat(qresult, line);
+			while (fgets(line, sizeof(line), file)) {
+				char * c = strtok(line, " ");
+				strcat(qresult, c);
+				strcat(qresult, " ");
+			}
 			// add end of line for this file
 			strcat(qresult, " \n");
 			fclose(file);
 		}
 
 	}
-	printf("qresult:\n %s\n",qresult);
+	printf("qresult:\n %s",qresult);
     closedir(dr);     
 
 	// send the query result back to client
@@ -258,7 +281,7 @@ void query(packet pac){
 		perror("client: sendto");
 		exit(1);
 	}else{
-			printf("sent QU_ACK\n");
+		printf("sent QU_ACK\n");
 	}
 
 }
@@ -286,23 +309,25 @@ void leaveSession(packet pac){
 		strcat(path, fname);
 		if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
 
-			//open this file
+			// delete line with user, use tmp file
 			FILE* file = fopen(path, "r");
+			FILE* tmp = fopen("./sessiondb/tmp.txt", "w");
 			char line[256];
-			fgets(line, sizeof(line), file);
-
-			//remove client id from this line
-			char* newLine=strremove(line, pac.source); 
-
-			//if different, then the clientid is removed
-			if(strcmp(newLine, line)!=0){
-				printf("the client is leaving %s\n", fname);
+			int count = 0;
+			while (fgets(line, sizeof(line), file)) {
+				if (!strstr(line, pac.source)) {
+					fputs(line, tmp);
+				}
+				count++;
 			}
-			// add end of line for this file
+			remove(path);
+			if (count == 1) {
+				remove("./sessiondb/tmp.txt");
+			} else {
+				rename("./sessiondb/tmp.txt", path);
+			}
+			fclose(tmp);
 			fclose(file);
-			file = fopen(path, "w");
-			fprintf(file,"%s",newLine);
-   			fclose(file);
 		}
 
 	}
@@ -313,7 +338,78 @@ void leaveSession(packet pac){
 void handleMsg(packet pac){
 	printf("we are receiving text from client: %s\n", pac.source);
 	printf("the message is: %s", pac.data);
+	
+	struct dirent *de;  // Pointer for directory entry 
+  
+    // opendir() returns a pointer of DIR type.  
+    DIR *dr = opendir("./sessiondb"); 
+  
+    if (dr == NULL)  
+    { 
+        printf("Could not open current directory" ); 
+        return 0; 
+    } 
+	
+	char target_path[100];
+
+    while ((de = readdir(dr)) != NULL){
+		char fname[100];
+		char path[100];
+		strcpy(path, "./sessiondb/");
+		strcpy(fname, de->d_name);
+		strcat(path, fname);
+		if((strcmp(fname,".")!=0) && (strcmp(fname,"..")!=0)){ // we don't want . and .. to be included in file names
+
+			FILE* file = fopen(path, "r");
+			char line[256];
+			while (fgets(line, sizeof(line), file)) {
+				if (strstr(line, pac.source)) {
+					fclose(file);
+					strcpy(target_path, path);
+					break;
+				}
+			}
+		}
+	}
+
+	printf("-----%s--------", target_path);
+	
+
 	return;
+}
+
+// helper, source: https://gist.github.com/jkomyno/45bee6e79451453c7bbdc22d033a282e
+void get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen)
+{
+    switch(sa->sa_family) {
+        case AF_INET:
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+                    s, maxlen);
+            break;
+
+        case AF_INET6:
+            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+                    s, maxlen);
+            break;
+
+        default:
+            strncpy(s, "Unknown AF", maxlen);
+    }
+}
+
+uint16_t get_port(const struct sockaddr *sa) {
+	switch(sa->sa_family) {
+        case AF_INET:
+			return htons(((struct sockaddr_in *)sa)->sin_port);
+            break;
+
+        case AF_INET6:
+            return htons(((struct sockaddr_in6 *)sa)->sin6_port);
+            break;
+
+        default:
+            return NULL;
+    }
 }
 
 
@@ -384,10 +480,15 @@ int main(int argc, char const *argv[])
 		
 		packet pac=strToPac(buf);
 		
+		struct sockaddr * tmp = (struct sockaddr *)&their_addr; // convert into correct struct
+		char ip[1024];
+		get_ip_str(tmp, ip, 1024);
+		uint16_t port = get_port(tmp);
+
 		if(pac.type==LOGIN){
 			login(pac);
 		}else if(pac.type==JOIN){
-			join(pac);
+			join(pac, ip, port);
 		}else if(pac.type==NEW_SESS){
 			create(pac);
 		}else if(pac.type==QUERY){

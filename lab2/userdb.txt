@@ -1,3 +1,2 @@
-id pass
-id pw
-clientID password
+client1 123
+client2 456

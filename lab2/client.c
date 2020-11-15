@@ -201,7 +201,7 @@ void createSession(char* token){
         printf("not enough argument\n");
         exit(1);
     }
-    printf("toekn: %s, length: %ld", token, strlen(token));
+    printf("token: %s, length: %ld", token, strlen(token));
 
     char* sessionID=(char *) malloc(strlen(token));
     strcpy(sessionID, token);
