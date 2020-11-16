@@ -366,6 +366,7 @@ int main(){
 
     while(1){
         //start typing commands
+        printf(">");
         char command[MAXBUFLEN]; 
         fgets(command, MAXBUFLEN, stdin); 
         printf("received command: %s", command);
