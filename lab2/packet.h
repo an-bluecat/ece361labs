@@ -80,5 +80,6 @@ packet strToPac(char* str){
 #define MESSAGE 10
 #define QUERY 11
 #define QU_ACK 12
+#define INV 13
 
 

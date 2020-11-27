@@ -72,6 +72,7 @@ void login(packet pac){
 		}
 	}
 	if(identified){ //send LO_ACK
+		mod_client_ip(pac.source, (struct sockaddr *) &their_addr, 1);
 		packet loAck;
 		loAck.type=LO_ACK;
 		strcpy(loAck.source,"empty");
@@ -340,6 +341,8 @@ void leaveSession(packet pac){
 void handleMsg(packet pac){
 	printf("we are receiving text from client: %s\n", pac.source);
 	printf("the message is: %s", pac.data);
+	char msg[MAX_DATA];
+	strcpy(msg, pac.data);
 	
 	struct dirent *de;  // Pointer for directory entry 
   
@@ -368,29 +371,43 @@ void handleMsg(packet pac){
 				if (strstr(line, pac.source)) {
 					fclose(file);
 					strcpy(target_path, path);
-					break;
+					// break;
+					// Do it here (for every session)
+					FILE * target_file = fopen(target_path, "r");
+					char line[256];
+					while (fgets(line, sizeof(line), target_file)) {
+						char * head = strtok(line, " ");
+						char * ip = strtok(NULL, " ");
+						int port = atoi(strtok(NULL, " "));
+						char prefix[100];
+						memset(prefix, 0, sizeof prefix);
+						memset(pac.data, 0, sizeof pac.data);
+						strcpy(prefix, de->d_name);
+						strcat(prefix, ": ");
+						strcat(prefix, msg);
+						strcpy(pac.data, prefix);
+						cast(ip, port, pac.data, QU_ACK);
+					}
 				}
 			}
 		}
 	}
-
-	printf("-----%s--------", target_path);
 	
 	// parse the target file
-	FILE * target_file = fopen(target_path, "r");
-	char line[256];
-	while (fgets(line, sizeof(line), target_file)) {
-		char * head = strtok(line, " ");
-		char * ip = strtok(NULL, " ");
-		int port = atoi(strtok(NULL, " "));
-		cast(ip, port, pac.data);
-	}
+	// FILE * target_file = fopen(target_path, "r");
+	// char line[256];
+	// while (fgets(line, sizeof(line), target_file)) {
+	// 	char * head = strtok(line, " ");
+	// 	char * ip = strtok(NULL, " ");
+	// 	int port = atoi(strtok(NULL, " "));
+	// 	cast(ip, port, pac.data);
+	// }
 }
 
-void cast(char* ip, int port, char* msg) {
+void cast(char* ip, int port, char* msg, int type) {
 	// send the query result back to client
 	packet m;
-	m.type=QU_ACK;
+	m.type=type;
 	strcpy(m.source,"empty");
 	memset(m.data, 0, sizeof m.data); // flush
 	strcpy(m.data, msg);
@@ -407,7 +424,7 @@ void cast(char* ip, int port, char* msg) {
 		perror("client: sendto");
 		exit(1);
 	}else{
-		printf("sent QU_ACK\n");
+		printf("sent\n");
 	}
 }
 
@@ -446,6 +463,64 @@ uint16_t get_port(const struct sockaddr *sa) {
     }
 }
 
+void mod_client_ip(char * id, const struct sockaddr *sa, int add) {
+	FILE* file = fopen("./userdb.txt", "r");
+	FILE* tmp = fopen("./tmp.txt", "w");
+
+	char line[256];
+	while (fgets(line, sizeof(line), file)) {
+		if (strstr(line, id)) {
+			char new_line[256];
+			if (add) {
+				char suffix[96];
+				char ip[64];
+				get_ip_str(sa, ip, 64);
+				u_int16_t port = get_port(sa);
+				sprintf(suffix, " %s %i\n", ip, port);
+				strcpy(new_line, line);
+				new_line[strlen(new_line)-1] = '\0';
+				strcat(new_line, suffix);
+			} else {
+				char * token = strtok(line, " ");
+				strcpy(new_line, token);
+				token = strtok(NULL, " ");
+				strcat(new_line, " ");
+				strcat(new_line, token);
+				strcat(new_line, "\n");
+			}
+			fputs(new_line, tmp);
+		} else {
+			fputs(line, tmp);
+		}
+	}
+	remove("./userdb.txt");
+	rename("./tmp.txt", "./userdb.txt");
+	fclose(tmp);
+	fclose(file);
+
+}
+
+void invite_client(packet pac){
+	FILE* file = fopen("./userdb.txt", "r");
+	char line[256];
+	char * id = strtok(pac.data, " ");
+	char * msg = strtok(NULL, "\n");
+
+	while (fgets(line, sizeof(line), file)) {
+		if (strstr(line, id)) {
+			strtok(line, " ");
+			strtok(NULL, " ");
+			char * ip = strtok(NULL, " ");
+			if (!ip) {
+				return;
+			}
+			char * port = strtok(NULL, "\n");
+
+			cast(ip, atoi(port), msg, INV);
+			break;
+		}
+	}
+}
 
 int main(int argc, char const *argv[])
 {
@@ -531,6 +606,8 @@ int main(int argc, char const *argv[])
 			handleMsg(pac);
 		}else if(pac.type==LEAVE_SESS){
 			leaveSession(pac);
+		}else if(pac.type==INV){
+			invite_client(pac);
 		}
 	}
 

@@ -31,6 +31,9 @@ struct addrinfo hints, *servinfo, *p;
 int rv;
 int numbytes;
 
+bool invited = false;
+char invited_session[128];
+
 pthread_mutex_t mutex;
 
 void login(char* token){
@@ -332,8 +335,6 @@ void sendText(char* token){
         perror("client: sendto");
         exit(1);
     }
-
-
     return;
 }
 
@@ -351,9 +352,48 @@ void *recv_msg(void *vargp) {
         printf("client: packet contains \"%s\"\n", buf);
         packet response=strToPac(buf);
         if (response.type == QU_ACK) {
-            printf("YOU GOT MESSAGE: %s\n", response.data);
+            printf("YOU GOT MESSAGE FROM SESSION %s", response.data);
             fflush(stdout);
         }
+        else if (response.type == INV) {
+            printf("YOU ARE INVITED TO JOIN SESSION %s, JOIN? (y/n)", response.data);
+            invited = true;
+            strcpy(invited_session, "a ");
+            strcat(invited_session, response.data);
+            strcat(invited_session, "\n");
+            fflush(stdout);
+        }
+    }
+}
+
+void invite(char * token) {
+    token = strtok(NULL, " \n");
+    if(token==NULL){
+        printf("not enough argument\n");
+        exit(1);
+    }
+
+    packet pac;
+    pac.type=INV;
+    strcpy(pac.source, loggedInClient); //clientID
+    strcpy(pac.data, token); //data=uid
+    token = strtok(NULL, " \n");
+    if(token==NULL){
+        printf("not enough argument\n");
+        exit(1);
+    }
+    strcat(pac.data, " ");
+    strcat(pac.data, token);
+    pac.size=strlen(pac.data);
+    char* pacStr=pacToStr(pac);
+    printf("pacStr is :%s\n", pacStr);
+
+    socklen_t addr_len=sizeof(p->ai_addr);
+    if (
+        (numbytes = sendto(sockfd, pacStr, strlen(pacStr)+1, 0 , (struct sockaddr *)&p->ai_addr, p->ai_addrlen)) == -1
+        ) {
+        perror("client: sendto");
+        exit(1);
     }
 }
 
@@ -366,10 +406,24 @@ int main(){
 
     while(1){
         //start typing commands
-        printf(">");
+        // printf(">");
         char command[MAXBUFLEN]; 
         fgets(command, MAXBUFLEN, stdin); 
         printf("received command: %s", command);
+        if (invited) { // process session invitation
+            pthread_cancel(thread_id);
+            if (strcmp(command, "y\n") == 0) {
+                printf("%s", invited_session);
+                strtok(invited_session, " ");
+                joinSession(invited_session);
+            } else {
+                printf("INVITATION DECLINED.");
+            }
+            invited = false;
+            memset(invited_session, 0, sizeof invited_session);
+            pthread_create(&thread_id, NULL, recv_msg, NULL);
+            continue;
+        }
         // split, take first
         char *token = strtok(command, " "); 
         if(strcmp(token, "/quit\n")==0){ //quit
@@ -401,6 +455,8 @@ int main(){
                 createSession(token);
             }else if(strcmp(token, "/list\n")==0){
                 query(token);
+            }else if(strcmp(token, "/invite")==0){
+                invite(token);
             }else{// send text
                 if(!inSession){
                     printf("you are not in a session yet, send text failed\n");
